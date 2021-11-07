@@ -6,6 +6,7 @@
 #include "AEBot.h"
 
 #define MAX_LOADSTRING 100
+#define IDT_TIMER1 1001
 
 // Global Variables:
 HINSTANCE m_hInst;                                // current instance
@@ -16,18 +17,122 @@ TCHAR strFormat[1024]; // Must ensure size!
 HWND m_hWnd;
 CAEBot* m_AEBot=NULL;
 
-HWND m_hButtonExit;
+//HWND m_hButtonExit;
+//HWND m_hButtonStart;
+//HWND m_hButtonStop;
+//HWND m_hButtonCaptureScreen;
 
-HWND m_hButtonStart;
-HWND m_hButtonStop;
-HWND m_hButtonCaptureScreen;
 HWND m_hInfoBox;
+
+#define GRINDING_ENDLESS 0
+#define GRINDING_TRAVEL 1
+#define GRINDING_STATION 2
+#define GRINDING_LOMSLIME 3
+#define GRINDING_TYPE 4
+
+string m_grindingType[GRINDING_TYPE] =
+{
+    "Endless", "Travel", "Station", "LOM Slime"
+};
 
 void AEBotThread(int n)
 {
-    m_AEBot->run();
+    Status_Code res;
+    res = m_AEBot->run();
+    return;
 }
 
+void Interface_Init(HWND hDlg, bool botEnabled)
+{
+    Bot_Mode botMode;
+
+    botMode = m_AEBot->GetMode();
+
+    switch (botMode)
+    {
+    case grindingMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_ENDLESS, 0);
+        break;
+    case grindingTravelMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_TRAVEL, 0);
+        break;
+	case grindingStationMode:
+		CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+		SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_STATION, 0);
+		break;
+	case grindingLOMSlimeMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_LOMSLIME, 0);
+        break;
+    case fishingMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
+        break;
+    case ratleJumpRope:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+        break;
+    case baruokiJumpRopeMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+        CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 1);
+        break;
+    case silverHitBell30Mode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+        break;
+    case silverHitBell999Mode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+        CheckDlgButton(hDlg, IDC_CHECK_Target999, 1);
+        break;
+    case seperateGrastaMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_SeparateGrasta);
+        break;
+    case engageFightMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_EngageHorror);
+        break;
+    case captureScreenMode:
+    default:
+        break;
+    }
+
+    for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
+    {
+        EnableWindow(GetDlgItem(hDlg, k), botEnabled);
+    }
+    EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), false);
+}
+
+void Interface_Grinding(HWND hDlg)
+{
+    UINT nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_GETCURSEL, 0, 0);
+    if (m_AEBot)
+    {
+        switch (nIndex)
+        {
+        case GRINDING_TRAVEL:
+            m_AEBot->SetMode(grindingTravelMode);
+            wsprintf(strFormat, _T("Travel world to grind.\n\nYou can start anywhere. Please config where to grind and what skill to use in config_setting file\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+		case GRINDING_STATION:
+			m_AEBot->SetMode(grindingStationMode);
+			wsprintf(strFormat, _T("Stay at the place to collect sparkles.\n\nYou can start anywhere. Please config where to grind in config_setting file\n"));
+			SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+			break;
+		case GRINDING_LOMSLIME:
+            m_AEBot->SetMode(grindingLOMSlimeMode);
+            wsprintf(strFormat, _T("Lord of Mana plantium slime grinding.\n\nYou can start anywhere\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+        case GRINDING_ENDLESS:
+        default:
+            m_AEBot->SetMode(grindingMode);
+            wsprintf(strFormat, _T("Grinding here.\n\nYou can start here\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+        }
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+    }
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -225,21 +330,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
-            case IDC_BUTTON_Start:
-                wsprintf(strFormat, _T("Start: wParam [%d] lParam [%x]"), wParam, lParam);
-                MessageBox(NULL, strFormat, _T("Information"), MB_ICONINFORMATION);
-                break;
-            case IDC_BUTTON_Stop:
-                wsprintf(strFormat, _T("Stop: wParam [%d] lParam [%x]"), wParam, lParam);
-                MessageBox(NULL, strFormat, _T("Information"), MB_ICONINFORMATION);
-                break;
-            case IDC_BUTTON_CaptureScreen:
-                wsprintf(strFormat, _T("%s\n%s\n\n"), szTitle, szWindowClass);
-                SetWindowText(m_hInfoBox, strFormat);
-
-                MessageBox(NULL, strFormat, _T("Information"), MB_ICONINFORMATION);
-
-                break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -286,64 +376,49 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
-    Bot_Mode botMode;
+    bool botEnabled;
 
     switch (message)
     {
     case WM_INITDIALOG:
-        EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), false);
+        //        wsprintf(strFormat, _T("Init: wParam [%d] lParam [%x]"), wParam, lParam);
+        //        MessageBox(NULL, strFormat, _T("Information"), MB_ICONINFORMATION);
 
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror,0);
-
-//        wsprintf(strFormat, _T("Init: wParam [%d] lParam [%x]"), wParam, lParam);
-//        MessageBox(NULL, strFormat, _T("Information"), MB_ICONINFORMATION);
+        // Try to auto select emulator
 
         m_AEBot = new CAEBot();
-        m_AEBot->setup();
+        m_AEBot->init();
 
-        botMode = m_AEBot->GetMode();
-
-        switch (botMode)
+        for (auto i = 0; i < m_AEBot->GetEmulatorNumber(); i++)
         {
-        case grindingMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
-            break;
-        case grindingTravelMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
-            CheckDlgButton(hDlg, IDC_CHECK_Travel, 1);
-            break;
-        case grindingLOMSlimeMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
-            CheckDlgButton(hDlg, IDC_CHECK_LOMSmile, 1);
-            break;
-        case fishingMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
-            break;
-        case ratleJumpRope:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
-            break;
-        case baruokiJumpRopeMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
-            CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 1);
-            break;
-        case silverHitBell30Mode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
-            break;
-        case silverHitBell999Mode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
-            CheckDlgButton(hDlg, IDC_CHECK_Target999, 1);
-            break;
-        case seperateGrastaMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_SeparateGrasta);
-            break;
-        case engageFightMode:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_EngageHorror);
-            break;
-        case captureScreenMode:
-        default:
-            break;
+            string emuname = m_AEBot->GetEmulatorName(i);
+            SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_ADDSTRING, 0, LPARAM(&emuname));
         }
- 
+
+        for (auto i = 0; i < GRINDING_TYPE; i++)
+        {
+            string grindingname = m_grindingType[i];
+            SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_ADDSTRING, 0, LPARAM(&grindingname));
+        }
+
+        botEnabled = false;
+        for (auto i = 0; i < m_AEBot->GetEmulatorNumber(); i++)
+        {
+            m_AEBot->SetEmulator(i);
+            Status_Code emuStatus = m_AEBot->setup();
+            if (emuStatus == status_NoError)
+            {
+                SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_SETCURSEL, i, 0);
+                
+                wsprintf(strFormat, _T("Auto Select Emulator [%d] %s successfully"), i, m_AEBot->GetEmulatorName(i));
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+                botEnabled = true;
+                break;
+            }
+        }
+
+        Interface_Init(hDlg, botEnabled);
+
         return (INT_PTR)TRUE;
 
     case WM_QUIT:
@@ -358,36 +433,43 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         PostQuitMessage(0);
         return (INT_PTR)TRUE;
 
+    case WM_TIMER:
+        switch (wParam)
+        {
+        case IDT_TIMER1:
+            if (m_AEBot)
+            {
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
+            }
+        }
+        return  (INT_PTR)TRUE;
+
     case WM_COMMAND:
         // Parse the menu selections:
-        int resourceID = (int)wParam;
         string str;
         UINT nCheck;
 
-        switch (resourceID)
+        switch (LOWORD(wParam))
         {
-        case IDC_BUTTON_Start:
-            //fork a thread for CAEBot
-            std::thread (AEBotThread, 1).detach();
-
-            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), true);
-            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Start), false);
-            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Refresh), false);
-            break;
-
         case IDC_BUTTON_Refresh:
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, 0);
-            CheckDlgButton(hDlg, IDC_CHECK_Travel, 0);
-            CheckDlgButton(hDlg, IDC_CHECK_LOMSmile, 0);
             CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 0);
             CheckDlgButton(hDlg, IDC_CHECK_Target999, 0);
+            SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, -1, 0);
+            SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_SETCURSEL, -1, 0);
+
+            for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
+            {
+                EnableWindow(GetDlgItem(hDlg, k), false);
+            }
+            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), false);
 
             wsprintf(strFormat, _T(""));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
 
             delete m_AEBot;
             m_AEBot = new CAEBot();
-            m_AEBot->setup();
+            m_AEBot->init();
 
             break;
 
@@ -395,29 +477,54 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             if (m_AEBot)
             {
                 m_AEBot->captureScreenNow();
-                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetdbgMsg()).c_str());
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
                 CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, 0);
             }
             break;
 
+        case IDC_BUTTON_Start:
+            SetTimer(hDlg, IDT_TIMER1, 1000, NULL);
+
+            if (m_AEBot)
+            {
+                //fork a thread for CAEBot
+                std::thread(AEBotThread, 1).detach();
+
+                for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
+                {
+                    EnableWindow(GetDlgItem(hDlg, k), false);
+                }
+
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Refresh), false);
+                EnableWindow(GetDlgItem(hDlg, IDC_EMULATORLIST), false);
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), true);
+            }
+            break;
+
         case IDC_BUTTON_Stop:
+            KillTimer(hDlg, IDT_TIMER1);
             if (m_AEBot)
             {
                 m_AEBot->SetStatus(status_Stop);
 
-                delete m_AEBot;
-                m_AEBot = NULL;
+                //delete m_AEBot;
+                //m_AEBot = NULL;
+
+                for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
+                {
+                    EnableWindow(GetDlgItem(hDlg, k), true);
+                }
+
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Refresh), true);
+                EnableWindow(GetDlgItem(hDlg, IDC_EMULATORLIST), true);
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), false);
+
             }
-            PostQuitMessage(0);
+            //PostQuitMessage(0);
             return (INT_PTR)TRUE;
 
         case IDC_RADIO_Grinding:
-            if (m_AEBot)
-            {
-                m_AEBot->SetMode(grindingMode);
-            }
-            wsprintf(strFormat, _T("Grinding here.\n\nYou can start here\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            Interface_Grinding(hDlg);
             break;
 
         case IDC_RADIO_Fishing:
@@ -430,83 +537,6 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             break;
 
         case IDC_RADIO_JumpRopes:
-            if (m_AEBot)
-            {
-                m_AEBot->SetMode(ratleJumpRope);
-            }
-            wsprintf(strFormat, _T("Ratle Jump Rope.\n\nGet to the section of text that says \"Are you ready ? GO!\" and then start\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-            break;
-
-        case IDC_RADIO_BellStrike:
-            if (m_AEBot)
-            {
-                m_AEBot->SetMode(silverHitBell30Mode);
-            }
-            wsprintf(strFormat, _T("Hit Bell 30 times multiple runs to win Silver Coin.\n\nUse characters with small head models. Mariel recommended.\nGet to the section of text that says \"...All right, here we go!\" and then start\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-            break;
-
-        case IDC_RADIO_SeparateGrasta:
-            if (m_AEBot)
-            {
-                m_AEBot->SetMode(seperateGrastaMode);
-            }
-            wsprintf(strFormat, _T("Seperate Grasta.\n\nGet to Izana and go to a place near the shrine. As long as the exclamation shows, then start.\nPlease config what grasta to separate in config_setting file\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-            break;
-
-        case IDC_RADIO_EngageHorror:
-            if (m_AEBot)
-            {
-                m_AEBot->SetMode(engageFightMode);
-            }
-            wsprintf(strFormat, _T("Engage a horror fight now.\n\nPlease config what skill to use in config_setting file\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-            break;
-
-        case IDC_CHECK_Travel:
-            nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_Travel);
-            if (m_AEBot)
-            {
-                if (nCheck)
-                {
-                    CheckDlgButton(hDlg, IDC_CHECK_LOMSmile, 0);
-                    m_AEBot->SetMode(grindingTravelMode);
-                    wsprintf(strFormat, _T("Travel world to grind.\n\nYou can start anywhere. Please config where to grind and what skill to use in config_setting file\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-                }
-                else
-                { 
-                    m_AEBot->SetMode(grindingMode);
-                    wsprintf(strFormat, _T("Grinding here.\n\nYou can start here\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-                }
-            }
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
-            break;
-
-        case IDC_CHECK_LOMSmile:
-            nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_LOMSmile);
-            if (m_AEBot)
-            {
-                if (nCheck)
-                {
-                    CheckDlgButton(hDlg, IDC_CHECK_Travel, 0);
-                    m_AEBot->SetMode(grindingLOMSlimeMode);
-                    wsprintf(strFormat, _T("Lord of Mana plantium slime grinding.\n\nYou can start anywhere\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-                }
-                else
-                {
-                    m_AEBot->SetMode(grindingMode);
-                    wsprintf(strFormat, _T("Grinding here.\n\nYou can start here\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-                }
-            }
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
-            break;
-
         case IDC_CHECK_FigureEight:
             nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_FigureEight);
             if (m_AEBot)
@@ -527,6 +557,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
             break;
 
+        case IDC_RADIO_BellStrike:
         case IDC_CHECK_Target999:
             nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_Target999);
             if (m_AEBot)
@@ -546,6 +577,65 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
             break;
+
+        case IDC_RADIO_SeparateGrasta:
+            if (m_AEBot)
+            {
+                m_AEBot->SetMode(seperateGrastaMode);
+            }
+            wsprintf(strFormat, _T("Seperate Grasta.\n\nGo and click separate in grasta panel, then start.\nPlease config what grasta to separate in config_setting file\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+
+        case IDC_RADIO_EngageHorror:
+            if (m_AEBot)
+            {
+                m_AEBot->SetMode(engageFightMode);
+            }
+            wsprintf(strFormat, _T("Engage a horror fight now.\n\nPlease config what skill to use in config_setting file\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+
+        case IDC_COMBO_GrindingType:
+            switch (HIWORD(wParam))
+            {
+            case CBN_SELCHANGE:
+                Interface_Grinding(hDlg);
+                break;
+            }
+            break;
+
+        case IDC_EMULATORLIST:
+            switch (HIWORD(wParam))
+            {
+            case CBN_SELCHANGE:
+                UINT nIndex = (UINT) SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_GETCURSEL, 0, 0);
+                if (nIndex != CB_ERR && m_AEBot)
+                {
+                    delete m_AEBot;
+                    m_AEBot = new CAEBot;
+                    m_AEBot->init();
+                    
+                    m_AEBot->SetEmulator(nIndex);
+                    Status_Code emuStatus = m_AEBot->setup();
+                    if ( emuStatus == status_NoError)
+                    {
+                        botEnabled = true;
+                        wsprintf(strFormat, _T("Select Emulator [%d] %s successfully"), nIndex, m_AEBot->GetEmulatorName(nIndex));
+                    }
+                    else 
+                    {
+                        botEnabled = false;
+                        wsprintf(strFormat, _T("Select Emulator [%d] %s failed"), nIndex, m_AEBot->GetEmulatorName(nIndex));
+                    }
+                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+
+                    Interface_Init(hDlg, botEnabled);
+                }
+                break;
+            }
+            break;
+
         }
         break;
     }
