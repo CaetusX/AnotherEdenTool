@@ -5,14 +5,22 @@ using namespace cv;
 using namespace std;
 using namespace cv::text;
 
-enum Bot_Mode { initialMode, grindingMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, fishingMode, ratleJumpRope, baruokiJumpRopeMode, silverHitBell30Mode, silverHitBell999Mode, seperateGrastaMode, engageFightMode, captureScreenMode};
-enum Status_Code { status_NoError, status_Timeout, status_NotFight, status_FightFail, status_Stop, status_WrongEmulator};
+enum Bot_Mode { initialMode, grindingMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, fishingMode, harpoonFishingMode, ratleJumpRope, baruokiJumpRopeMode, silverHitBell30Mode, silverHitBell999Mode, seperateGrastaMode, engageFightMode, captureScreenMode};
+enum Status_Code { 
+	status_NoError, status_Timeout, status_Stop,
+	status_WrongEmulator,
+	status_NotFight, status_FightFail,
+	status_NoHarpoonCatch, status_HarpoonCatchFail, status_HarpoonTrapWaiting, status_HarpoonTrapFail
+};
 enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special};
-enum Bait_Type { bait_Fishing_Dango, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, bait_Foamy_Worm, bait_Bubbly_Worm, bait_Snitch_Sardines, bait_Blabber_Sardines, bait_Crab_Cake, bait_Premium_Crab_Cake, bait_Error_Max };
-enum Door_Type { door_Default, door_Small, door_LOM };
-enum Stair_Type { stair_Default, stair_Down, stair_LOM };
-enum Excl_Type { excl_Default, excl_Fishing, excl_Small, excl_Large, excl_Grasta, excl_Chamber, excl_ChamberPlasma };
-enum Direction_Info { LEFT, RIGHT, DOWN, UP, LR };
+enum Bait_Type { 
+	bait_Fishing_Dango = 0, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, 
+	bait_Foamy_Worm, bait_Bubbly_Worm, bait_Snitch_Sardines, bait_Blabber_Sardines, bait_Crab_Cake, bait_Premium_Crab_Cake, 
+	harpoonBait_Seaworm, harpoonBait_Shrimp, harpoonBait_WreckerCrab, harpoonBait_BrightSeashell,
+	bait_Error_Max
+};
+
+enum Direction_Info { LEFT, RIGHT, DOWN, UP, LR, NOWHERE };
 
 enum {
 	Grasta_Slot_0, Grasta_Slot_1, Grasta_Slot_2, Grasta_Slot_3, Grasta_Slot_4, 
@@ -44,6 +52,14 @@ struct imageInfo
 	int coordx;
 	int coordy;
 	Mat image;
+};
+
+struct baitInfo
+{
+	string baitName;
+	double baitPrice;
+	int baitNumber;
+	bool hasBait;
 };
 
 struct fishingSpot
@@ -105,6 +121,7 @@ private:
 
 	char m_debugMsg[1024];
 	string m_outputMsg;
+	char m_timeString[80];
 
 	Status_Code m_resValue;
 
@@ -122,6 +139,7 @@ private:
 	double M_HEIGHT;
 	double M_WIDTH_1280;
 	double M_HEIGHT_720;
+	double M_ABOVE_MENU;
 
 	int m_height, m_width;
 	double m_heightPct, m_widthPct;
@@ -145,13 +163,16 @@ private:
 	HDC hdc;
 	HDC hDest;
 	HBITMAP hbDesktop;
-	Mat bitbltPic, fishIcon, exclDefaultIcon, exclFishingIcon, exclSmallIcon, exclLargeIcon, exclGrastaIcon, exclChamberIcon, exclChamberPlasmaIcon, swampFishIcon, doorDefaultIcon, doorSmallIcon, doorLOMIcon, stairDefaultIcon, stairDownIcon, stairLOMIcon;
-	Mat afBarEmptyPic, afBarFullPic, hitBellPic, jmpRopePic1, jmpRopePic2, jmpRopePic3, jmpRopePic4, catHokoraPic;
+
+	Mat m_BitbltPic;
+	Mat afBarEmptyPic, afBarFullPic, hitBellPic, jmpRopePic1, jmpRopePic2, jmpRopePic3, jmpRopePic4, catHokoraPic, harpoonFishPic;
 
 	string ocrNumbers;
 	string ocrLetters;
 
-	vector<pair<int, int>> m_Locs_baits;
+	vector<Mat> m_Icons;
+	vector<Mat> m_Pictures;
+
 	vector<pair<int, int>> m_Locs_Acteul;
 	vector<pair<int, int>> m_Locs_Baruoki;
 	vector<pair<int, int>> m_Locs_DragonPalace;
@@ -169,6 +190,7 @@ private:
 	vector<buttonInfo> m_Button_MapButtons;
 	vector<buttonInfo> m_Button_Characters;
 	vector<buttonInfo> m_Button_Skills;
+	vector<buttonInfo> m_Button_Baits;
 
 	int m_Skill_Normal;
 	int m_Skill_Exchange;
@@ -178,9 +200,15 @@ private:
 	int m_Skill_for_AF;
 	int m_CharacterFrontline;
 
+	int m_Action_Interval;
+	int m_Fast_Action_Interval;
+	int m_Smart_DownUp_Interval;
+	int m_Smart_DownUp_Threshold;
+
+	double m_Walk_Distance_Ratio;
+
 	int m_Fight_AFInterval;
 	int m_Fight_AFFullThreshold;
-	int m_Fight_ActionInterval;
 
 	bool m_Fight_GrindingSkipSpaceTimeRift;
 	bool m_Fight_GrindingSkipRunning;
@@ -188,7 +216,7 @@ private:
 
 	int m_Fight_GrindingStep;
 	int m_Fight_GrindingCount;
-	int m_Fight_Timeout;
+	int m_Time_Out;
 	int m_Fight_HorrorCount;
 
 	string m_Fight_LOMHeal;
@@ -199,6 +227,17 @@ private:
 	int m_Fight_LOMTurn;
 
 	int m_currentGrindingCounter;
+
+	int m_Harpoon_Loop;
+	int m_Harpoon_Xinc;
+	int m_Harpoon_Yinc;
+	int m_Harpoon_Xmin;
+	int m_Harpoon_Xmax;
+	int m_Harpoon_Ymin;
+	int m_Harpoon_Ymax;
+	bool m_Harpoon_SkipVendor;
+	int m_Harpoon_Interval;
+	int m_Harpoon_Threshold;
 
 	vector<vector<int>> m_skillsHorrorSet;
 	vector<vector<int>> m_skillsMobSet;
@@ -232,17 +271,17 @@ private:
 	vector<Mat> m_MonsterVec_DimensionRift;
 	vector<Mat> m_MonsterVec_LOMPSlime;
 
-	vector<string> m_baitNames;
+	vector<baitInfo> m_baitList; //Index is the type, the boolean is whether or not you have greater than 0 currently held, int is how many to buy for this run
+	vector<Bait_Type>* m_currentBaitsToUse;
 
 	vector<imageInfo> m_DynamicImage;
 
 	vector<locationInfo> m_LocationList;
-	vector<fishingSpot> m_fishingSpots;
 	vector<pair<string, int>> m_grindingSpots;
-	locationInfo m_stationGrindingSpot;
+	vector<fishingSpot> m_fishingSpots;
+	vector<pair<string, int>> m_harpoonSpots; //string is the harpoon location name, int is the order
 
-	vector<pair<bool, int>> m_baitList; //Index is the type, the boolean is whether or not you have greater than 0 currently held, int is how many to buy for this run
-	vector<Bait_Type>* m_currentBaitsToUse;
+	locationInfo m_stationGrindingSpot;
 
 	pair<int, int> m_currentFishIconLoc;
 	string m_currentLocation;
@@ -250,34 +289,35 @@ private:
 
 	void dbgMsg(int debugLevel);
 	void outputMsg();
+	char* timeString();
 	void bitBltWholeScreen();
 	void copyPartialPic(Mat& partialPic, int cols, int rows, int x, int y);
 	string runOCR(Mat& pic);
 	string getText(Mat& pic);
 	int getNumber(Mat& pic);
-	bool hokoraReady();
 	string ocrPictureText(int columns, int rows, int x, int y);
 	int ocrPictureNumber(int columns, int rows, int x, int y);
 
 	pair<int, int> findIcon(Mat& tmp);
-	pair<int, int> findExclamationIcon(Excl_Type whichExcl = excl_Default);
-	pair<int, int> findDoorIcon(Door_Type whichDoor = door_Default);
-	pair<int, int> findStairIcon(Stair_Type whichStair);
-	void findAndClickSwampFishIcon();
-	void findAndClickFishIcon();
+	pair<int, int> findIconInRegion(Mat& tmp, int cols, int rows, int x, int y);
+	bool compareImage(string imageID, bool toSearch = false);
+	pair<bool, pair<int, int>>  findClickInRegion(string findString, int cols, int rows, int x, int y);
 
-	Bait_Type hashBait(string str);
-
-	void leftClick(int x, int y, int sTime = 2000, bool changeLoc = true);
+	void leftClick(int x, int y, int sTime = 3000, bool changeLoc = true);
 	void leftClick(pair<int, int>& coord, int sTime = 3000);
 	void drag(Direction_Info botDirection, int slideDistance, int xStart, int yStart, int sleepTime = 1000, int scrollRatio = 1);
 	void dragMap(Direction_Info botDirection, int slideDistance);
-	void Walk(Direction_Info botDirection, int time, int sleepTime = 3000);
-	void clickAttack(int time = 3000);
+	void walk(Direction_Info botDirection, int time, int sleepTime = 3000);
 	bool inBattle();
 	bool endBattle();
+
+	Status_Code smartWorldMap(pair<int, int>& coord);
+	Status_Code smartMiniMap(pair<int, int>& coord);
+	Status_Code smartLoadMap(pair<int, int>& coord);
+	Status_Code smartDownUp(Direction_Info updownDirection, Direction_Info leftrightDirection);
+	Status_Code sleepLoadTime();
 	Status_Code fightUntilEnd();
-	Status_Code WalkUntilBattle(Direction_Info botdirection = LR);
+	Status_Code walkUntilBattle(Direction_Info botdirection);
 
 	Status_Code engageMobFightNow(int horrorThreshold = 7000);
 	Status_Code engageHorrorFightNow(bool restoreHPMP = true);
@@ -288,19 +328,29 @@ private:
 	void goToFishingLocation();
 	void goToSpacetimeRift(bool heal = true);
 	void goToFishVendor();
+	void goToHarpoonVendor();
+	void buyBaitsFromVendor();
 	void fishFunction();
 	void fishIconClickFunction();
+	Status_Code harpoonFunction();
+	Status_Code harpoonHorror();
+	Status_Code harpoonMassShooting();
+	Status_Code harpoonTrapFunction(string trapRef = "");
+	Status_Code harpoonSetTrap(string trapRef = "");
 
 	Status_Code stateFishing();
+	Status_Code stateHarpoonFishing();
 	Status_Code stateSilverHitBell(Bot_Mode silverHitBellstate);
 	Status_Code stateJumpRopeRatle();
 	Status_Code stateJumpRopeBaruoki();
 	Status_Code stateSeparateGrasta();
-	Status_Code grindingRun(bool endlessGrinding = false);
+	Status_Code grindingRun(bool endlessGrinding, int forcetimeout = 0);
 	Status_Code stateTravelGrinding();
 	Status_Code stateStationGrinding();
 	Status_Code stateLOMSlimeGrinding();
 	Status_Code stateEndlessGrinding();
+
+	Status_Code captureImageNow(Mat imagePicCrop, const char* nameSuffix);
 
 	keyvalueInfo parseKeyValue(string str, string parser, bool order = true);
 	pair<int, int> parseXYinfo(string str);
@@ -310,7 +360,7 @@ private:
 	vector<vector<int>> parseSkillsSet(ifstream& file);
 	vector<pair<string, int>> parseGrindingSpotsList(ifstream& file);
 	vector<string> parseGrastaNames(ifstream& file);
-	void parseBaitForArea(ifstream& file, bool maxBait, fishingSpot& area, set<int>& baitsNeeded, vector<pair<bool, int>>& baitsToPurchase);
+	void parseBaitForArea(ifstream& file, bool constructBait, fishingSpot& area, set<Bait_Type>& baitsNeeded, vector<baitInfo>& baitsToPurchase);
 	void parsePathList(ifstream& file, locationInfo& location);
 	void parseEmulator(ifstream& file);
 

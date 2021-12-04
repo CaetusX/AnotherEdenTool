@@ -28,9 +28,10 @@
 #define IDC_RADIO_SeparateGrasta        1011
 #define IDC_RADIO_EngageHorror          1012
 #define IDC_COMBO_GrindingType          1013
-#define IDC_CHECK_FigureEight           1014
-#define IDC_CHECK_Target999             1015
-#define IDC_CONTROLUNIT_END             1015
+#define IDC_CHECK_Harpoon               1014
+#define IDC_CHECK_FigureEight           1015
+#define IDC_CHECK_Target999             1016
+#define IDC_CONTROLUNIT_END             1016
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

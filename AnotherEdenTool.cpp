@@ -68,9 +68,15 @@ void Interface_Init(HWND hDlg, bool botEnabled)
         break;
     case fishingMode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
+        CheckDlgButton(hDlg, IDC_CHECK_Harpoon, 0);
+        break;
+    case harpoonFishingMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
+        CheckDlgButton(hDlg, IDC_CHECK_Harpoon, 1);
         break;
     case ratleJumpRope:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+        CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 0);
         break;
     case baruokiJumpRopeMode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
@@ -78,6 +84,7 @@ void Interface_Init(HWND hDlg, bool botEnabled)
         break;
     case silverHitBell30Mode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+        CheckDlgButton(hDlg, IDC_CHECK_Target999, 0);
         break;
     case silverHitBell999Mode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
@@ -528,12 +535,23 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             break;
 
         case IDC_RADIO_Fishing:
+        case IDC_CHECK_Harpoon:
+            nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_Harpoon);
             if (m_AEBot)
             {
-                m_AEBot->SetMode(fishingMode);
+                if (nCheck)
+                {
+                    m_AEBot->SetMode(harpoonFishingMode);
+                    wsprintf(strFormat, _T("Harpoon Fishing mode.\n\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\n"));
+                }
+                else
+                {
+                    m_AEBot->SetMode(fishingMode);
+                    wsprintf(strFormat, _T("Fishing mode.\n\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\n"));
+                }
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             }
-            wsprintf(strFormat, _T("Fishing mode.\n\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\n"));
-            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
             break;
 
         case IDC_RADIO_JumpRopes:
@@ -545,14 +563,13 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 {
                     m_AEBot->SetMode(baruokiJumpRopeMode);
                     wsprintf(strFormat, _T("Baruoki Jump Rope.\n\nGet to the section of text that says \"Ready!\", and then start\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
                 }
                 else
                 {
                     m_AEBot->SetMode(ratleJumpRope);
                     wsprintf(strFormat, _T("Ratle Jump Rope.\n\nGet to the section of text that says \"Are you ready ? GO!\" and then start\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
                 }
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             }
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
             break;
@@ -566,14 +583,13 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 {
                     m_AEBot->SetMode(baruokiJumpRopeMode);
                     wsprintf(strFormat, _T("Hit Bell 999 times.\n\nUse characters with small head models. Mariel recommended.\nGet to the section of text that says \"...All right, here we go!\" and then start\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
                 }
                 else
                 {
                     m_AEBot->SetMode(ratleJumpRope);
                     wsprintf(strFormat, _T("Hit Bell 30 times multiple runs to win Silver Coin.\n\nUse characters with small head models. Mariel recommended.\nGet to the section of text that says \"...All right, here we go!\" and then start\n"));
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
                 }
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             }
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
             break;
