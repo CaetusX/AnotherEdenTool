@@ -24,12 +24,7 @@ HWND m_window;
 
 std::random_device dev;
 std::mt19937 rng;
-std::uniform_int_distribution<std::mt19937::result_type> slideSleepRand;
-std::uniform_int_distribution<std::mt19937::result_type> slideRand;
-std::uniform_int_distribution<std::mt19937::result_type> slideDistanceRand;
 std::uniform_int_distribution<std::mt19937::result_type> boolRand;
-std::uniform_int_distribution<std::mt19937::result_type> slideLClick;
-std::uniform_int_distribution<std::mt19937::result_type> longSleepRand;
 
 void ltrimString(string& str)
 {
@@ -101,7 +96,7 @@ CAEBot::CAEBot(HWND pParent)
 	M_HEIGHT_720 = 720.0;
 	M_ABOVE_MENU = 800.0;
 
-	m_msdThreshold = 10000;
+	m_Image_Threshold = 10000;
 	m_loadTime = 3000;
 	m_IsDebug_Key = false;
 	m_IsDebug_Path = false;
@@ -330,7 +325,7 @@ pair<int, int> CAEBot::findIconInRegion(Mat& tmp, int cols, int rows, int x, int
 	return make_pair((int) target_x, (int) target_y);
 }
 
-bool CAEBot::compareImage(string imageID, bool toSearch)
+bool CAEBot::compareImage(string imageID)
 {
 	Mat imagePicCrop, target_image;
 	double MSD1;
@@ -354,7 +349,7 @@ bool CAEBot::compareImage(string imageID, bool toSearch)
 	}
 
 	bitBltWholeScreen();
-	if (toSearch)
+	if (target_x == 0 && target_y == 0)
 	{
 		pair <int, int> iconlocation = findIcon(target_image);
 
@@ -371,10 +366,10 @@ bool CAEBot::compareImage(string imageID, bool toSearch)
 	MSD1 = cv::norm(target_image, imagePicCrop);
 	MSD1 = (MSD1 * MSD1 / target_image.total());
 	
-	snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)\n", imageID.c_str(), MSD1, m_msdThreshold);
+	snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)\n", imageID.c_str(), MSD1, m_Image_Threshold);
 	dbgMsg(m_IsDebug_Platform);
 
-	return (MSD1 <= m_msdThreshold); // something wrong with trap set up window
+	return (MSD1 <= m_Image_Threshold); // something wrong with trap set up window
 }
 
 pair<bool, pair<int, int>> CAEBot::findClickInRegion(string findString, int cols, int rows, int x, int y)
@@ -419,12 +414,17 @@ pair<bool, pair<int, int>> CAEBot::findClickInRegion(string findString, int cols
 	double MSD1 = cv::norm(target_image, imagePicCrop);
 	MSD1 = (MSD1 * MSD1 / target_image.total());
 
-	returnicon.first = (MSD1 < m_msdThreshold);
+	returnicon.first = (MSD1 < m_Image_Threshold);
 
 	snprintf(m_debugMsg, 1024, "findClickInRegion %x %d %d\n", returnicon.first, returnicon.second.first, returnicon.second.second);
 	dbgMsg(m_IsDebug_Platform);
 
 	return returnicon;
+}
+
+void CAEBot::leftClick(int x, int y, bool changeLoc)
+{
+	leftClick(x, y, m_Action_Interval, changeLoc);
 }
 
 void CAEBot::leftClick(int x, int y, int sTime, bool changeLoc)
@@ -447,6 +447,11 @@ void CAEBot::leftClick(int x, int y, int sTime, bool changeLoc)
 	Sleep(sTime);
 }
 
+void CAEBot::leftClick(pair<int, int>& coord)
+{
+	leftClick(coord.first, coord.second, m_Action_Interval);
+}
+
 // will always change coordination system to the current one
 void CAEBot::leftClick(pair<int, int>& coord, int sTime)
 {
@@ -458,96 +463,62 @@ void CAEBot::drag(Direction_Info botDirection, int slideDistance, int xStart, in
 	snprintf(m_debugMsg, 1024, "drag %d %d %d %d\n", botDirection, slideDistance, xStart, yStart);
 	dbgMsg(m_IsDebug_Platform);
 
-	xStart = (int) round(xStart * m_widthPct);
-	yStart = (int) round(yStart * m_heightPct);
-	int delta = 0;
-	int deviation = 3;
+	xStart = (int)round(xStart * m_widthPct);
+	yStart = (int)round(yStart * m_heightPct);
 
 	switch (botDirection)
 	{
 	case RIGHT:
-		deviation = (int) round(deviation * m_heightPct);
-		slideDistance = (int) round(slideDistance * m_widthPct);
-		xStart = (boolRand(rng) ? xStart + slideLClick(rng) : xStart - slideLClick(rng));
-		yStart = (boolRand(rng) ? yStart + slideLClick(rng) : yStart - slideLClick(rng));
+		slideDistance = (int)round(slideDistance * m_widthPct);
 		SendMessage(m_window, WM_LBUTTONDOWN, 0, MAKELPARAM(xStart, yStart));
 		Sleep(1);
 
-		for (int i = 0; i < slideDistance / scrollRatio; ++i)
+		for (int i = 0; i < slideDistance / scrollRatio; i++)
 		{
-			if (boolRand(rng) && delta < deviation)
-				delta += boolRand(rng);
-			else if (delta > -deviation)
-				delta -= boolRand(rng);
-
-			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart - i * scrollRatio, yStart + delta));
+			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart - i * scrollRatio, yStart));
 			Sleep(1);
 		}
 
-		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart - (slideDistance - 1), yStart + delta));
+		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart - (slideDistance - 1), yStart));
 		break;
 	case LEFT:
-		deviation = (int) round(deviation * m_heightPct);
-		slideDistance = (int) round(slideDistance * m_widthPct);
-		xStart = (boolRand(rng) ? xStart + slideLClick(rng) : xStart - slideLClick(rng));
-		yStart = (boolRand(rng) ? yStart + slideLClick(rng) : yStart - slideLClick(rng));
+		slideDistance = (int)round(slideDistance * m_widthPct);
 		SendMessage(m_window, WM_LBUTTONDOWN, 0, MAKELPARAM(xStart, yStart));
 		Sleep(1);
 
-		for (int i = 0; i < slideDistance / scrollRatio; ++i)
+		for (int i = 0; i < slideDistance / scrollRatio; i++)
 		{
-			if (boolRand(rng) && delta < deviation)
-				delta += boolRand(rng);
-			else if (delta > -deviation)
-				delta -= boolRand(rng);
-
-			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart + i * scrollRatio, yStart + delta));
+			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart + i * scrollRatio, yStart));
 			Sleep(1);
 		}
 
-		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart + (slideDistance - 1), yStart + delta));
+		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart + (slideDistance - 1), yStart));
 		break;
 	case UP:
-		deviation = (int) round(deviation * m_widthPct);
-		slideDistance = (int) round(slideDistance * m_heightPct);
-		xStart = (boolRand(rng) ? xStart + slideLClick(rng) : xStart - slideLClick(rng));
-		yStart = (boolRand(rng) ? yStart + slideLClick(rng) : yStart - slideLClick(rng));
+		slideDistance = (int)round(slideDistance * m_heightPct);
 		SendMessage(m_window, WM_LBUTTONDOWN, 0, MAKELPARAM(xStart, yStart));
 		Sleep(1);
 
-		for (int i = 0; i < slideDistance / scrollRatio; ++i)
+		for (int i = 0; i < slideDistance / scrollRatio; i++)
 		{
-			if (boolRand(rng) && delta < deviation)
-				delta += boolRand(rng);
-			else if (delta > -deviation)
-				delta -= boolRand(rng);
-
-			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart + delta, yStart + i * scrollRatio));
+			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart, yStart + i * scrollRatio));
 			Sleep(1);
 		}
 
-		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart + delta, yStart + (slideDistance - 1)));
+		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart, yStart + (slideDistance - 1)));
 		break;
 	case DOWN:
-		deviation = (int) round(deviation * m_widthPct);
-		slideDistance = (int) round(slideDistance * m_heightPct);
-		xStart = (boolRand(rng) ? xStart + slideLClick(rng) : xStart - slideLClick(rng));
-		yStart = (boolRand(rng) ? yStart + slideLClick(rng) : yStart - slideLClick(rng));
+		slideDistance = (int)round(slideDistance * m_heightPct);
 		SendMessage(m_window, WM_LBUTTONDOWN, 0, MAKELPARAM(xStart, yStart));
 		Sleep(1);
 
-		for (int i = 0; i < slideDistance / scrollRatio; ++i)
+		for (int i = 0; i < slideDistance / scrollRatio; i++)
 		{
-			if (boolRand(rng) && delta < deviation)
-				delta += boolRand(rng);
-			else if (delta > -deviation)
-				delta -= boolRand(rng);
-
-			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart + delta, yStart - i * scrollRatio));
+			SendMessage(m_window, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(xStart, yStart - i * scrollRatio));
 			Sleep(1);
 		}
 
-		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart + delta, yStart - (slideDistance - 1)));
+		SendMessage(m_window, WM_LBUTTONUP, 0, MAKELPARAM(xStart, yStart - (slideDistance - 1)));
 		break;
 	}
 
@@ -559,18 +530,23 @@ void CAEBot::dragMap(Direction_Info botDirection, int slideDistance)
 	switch (botDirection)
 	{
 	case RIGHT:
-		drag(RIGHT, slideDistance, 1600, 300);
+		drag(RIGHT, slideDistance, 1600, 491);
 		break;
 	case LEFT:
-		drag(LEFT, slideDistance, 185, 300);
+		drag(LEFT, slideDistance, 145, 490);
 		break;
 	case UP:
-		drag(UP, slideDistance, 850, 350);
+		drag(UP, slideDistance, 872, 150);
 		break;
 	case DOWN:
-		drag(DOWN, slideDistance, 850, 850);
+		drag(DOWN, slideDistance, 873, 831);
 		break;
 	}
+}
+
+void CAEBot::walk(Direction_Info botDirection, int time)
+{
+	walk(botDirection, time, m_Action_Interval);
 }
 
 void CAEBot::walk(Direction_Info botDirection, int time, int sleepTime)
@@ -749,7 +725,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 
 	leftClick(coord, 500);
 
-	while (!compareImage("YES", true))
+	while (!compareImage("Yes"))
 	{
 		if (m_resValue == status_Stop)
 			return m_resValue;
@@ -894,7 +870,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 	return fightUntilEnd();
 }
 
-Status_Code CAEBot::engageMobFightNow(int horrorThreshold)
+Status_Code CAEBot::engageMobFightNow()
 {
 	time_t currenttime, lastfighttime;
 
@@ -945,7 +921,7 @@ Status_Code CAEBot::engageMobFightNow(int horrorThreshold)
 			}
 		}
 
-		if (lowestMSD < horrorThreshold) //It should be a plantium slime
+		if (lowestMSD < m_Image_Threshold) //It should be a plantium slime
 		{
 			isThisPSlime = true;
 
@@ -1228,7 +1204,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 	return status_NoError;
 }
 
-void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horrorThreshold)
+void CAEBot::fish(vector<pair<int, int>>& sections)
 {
 	//Strategy is to quadrisect the lake and toss into each of the four sections and center
 	int catchIndex = 0, horrorIndex = 0, monsterIndex = 0;
@@ -1323,7 +1299,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horr
 				MSD = cv::norm(lakeImg, m_BitbltPic);
 				MSD = MSD * MSD / lakeImg.total();
 
-				if (MSD > m_msdThreshold) //If the current screen is sufficiently different (high mean square difference) from the normal lake image, then a zoom in has occurred
+				if (MSD > m_Image_Threshold) //If the current screen is sufficiently different (high mean square difference) from the normal lake image, then a zoom in has occurred
 				{
 					Sleep(100); //Emulate human reaction time
 					leftClick(sections[j].first, sections[j].second);
@@ -1338,7 +1314,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horr
 					bitBltWholeScreen();
 					MSD = cv::norm(lakeImg, m_BitbltPic);
 					MSD = MSD * MSD / lakeImg.total();
-					if (MSD > m_msdThreshold) //Double, gotta click past it
+					if (MSD > m_Image_Threshold) //Double, gotta click past it
 					{
 						leftClick(sections[j].first, sections[j].second);
 						Sleep(m_Action_Interval);
@@ -1346,7 +1322,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horr
 						bitBltWholeScreen();
 						MSD = cv::norm(lakeImg, m_BitbltPic);
 						MSD = MSD * MSD / lakeImg.total();
-						if (MSD > m_msdThreshold) //Triple
+						if (MSD > m_Image_Threshold) //Triple
 						{
 							leftClick(sections[j].first, sections[j].second);
 							Sleep(m_Action_Interval);
@@ -1357,7 +1333,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horr
 					bitBltWholeScreen();
 					MSD = cv::norm(lakeImg, m_BitbltPic);
 					MSD = MSD * MSD / lakeImg.total();
-					if (MSD > m_msdThreshold) //Should have returned to normal lake image; if not, its a battle
+					if (MSD > m_Image_Threshold) //Should have returned to normal lake image; if not, its a battle
 					{
 						Sleep(5000); //Give ample time for battle to fully load
 
@@ -1391,7 +1367,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections, int m_msdThreshold, int horr
 										Sleep(10);
 									}
 
-									if (lowestMSD > horrorThreshold) //If its not a monster, it must be a horror
+									if (lowestMSD > m_Image_Threshold) //If its not a monster, it must be a horror
 										isThisHorror = true;
 								}
 								else
@@ -1511,10 +1487,10 @@ void CAEBot::changeBait(Bait_Type type)
 
 	if (slotNum > 4)
 	{
-		drag(DOWN, 74, m_xCenter, m_yCenter);
+		drag(DOWN, 74, 872, 491);
 		for (int i = 5; i < slotNum; ++i)
 		{
-			drag(DOWN, 100, m_xCenter, m_yCenter);
+			drag(DOWN, 100, 872, 491);
 		}
 
 		leftClick(m_Button_Baits[5].xyPosition.first, m_Button_Baits[5].xyPosition.second);
@@ -1852,7 +1828,7 @@ void CAEBot::buyBaitsFromVendor()
 	leftClick(930, 850);
 
 	//Only 5 bait slots are fully on screen at a time, with the 6th partially visible. For every bait after 6, scroll down until new bait occupies bottom slot and then attempt to buy
-	for (auto i = 0, j = 0; i < m_baitList.size(); i++)
+	for (auto i = 0, j = 0; i < m_baitList.size() && j < m_baitList.size(); i++)
 	{
 		if (i > 4)
 		{
@@ -2108,7 +2084,7 @@ void CAEBot::fishFunction()
 	else if (m_currentLocation.compare("Man-Eating Swamp") == 0)
 	{
 		//has monster, no horror
-		fish(m_Locs_Acteul, 5500);
+		fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Charol Plains") == 0)
@@ -2126,7 +2102,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(408, 345);
 
-		fish(m_Locs_DimensionRift, 10000, 2500);
+		fish(m_Locs_DimensionRift);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2280,7 +2256,7 @@ Status_Code CAEBot::harpoonFunction()
 	{
 		counter++;
 
-		if (counter >= 3)
+		if (counter >= 6)
 		{
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			break;
@@ -2773,7 +2749,7 @@ Status_Code CAEBot::stateSilverHitBell(Bot_Mode silverHitBellstate)
 			MSD1 = (int)cv::norm(hitBellPic, bellPicCrop);
 			MSD1 = MSD1 * MSD1 / (int)hitBellPic.total();
 
-			if (MSD1 < m_msdThreshold)
+			if (MSD1 < m_Image_Threshold)
 			{
 				int tosleep = 1;
 				Sleep(tosleep);
@@ -3375,24 +3351,24 @@ Status_Code CAEBot::captureImageNow(Mat imagePicCrop, const char* nameSuffix)
 	return status_NoError;
 }
 
-keyvalueInfo CAEBot::parseKeyValue(string str, string parser, bool order)
+keyvalueInfo CAEBot::parseKeyValue(string str, string parser, bool reverseorder)
 {
 	keyvalueInfo returnkeyvalueInfo;
 
 	int loc = (int)str.find(parser);
-	if (order)
-	{
-		returnkeyvalueInfo.key = str.substr(0, loc);
-		rtrimString(returnkeyvalueInfo.key);
-		returnkeyvalueInfo.value = str.substr(loc + 1);
-		ltrimString(returnkeyvalueInfo.value);
-	}
-	else
+	if (reverseorder)
 	{
 		returnkeyvalueInfo.key = str.substr(loc + 1);
 		ltrimString(returnkeyvalueInfo.key);
 		returnkeyvalueInfo.value = str.substr(0, loc);
 		rtrimString(returnkeyvalueInfo.value);
+	}
+	else
+	{
+		returnkeyvalueInfo.key = str.substr(0, loc);
+		rtrimString(returnkeyvalueInfo.key);
+		returnkeyvalueInfo.value = str.substr(loc + 1);
+		ltrimString(returnkeyvalueInfo.value);
 	}
 
 	return returnkeyvalueInfo;
@@ -3762,9 +3738,9 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Walk_Distance_Ratio = stod(value);
 		}
-		else if (key.compare("MSD Threshold") == 0)
+		else if (key.compare("Image Threshold") == 0)
 		{
-			m_msdThreshold = stoi(value);
+			m_Image_Threshold = stoi(value);
 		}
 		else if (key.compare("Print Image") == 0)
 		{
@@ -4422,12 +4398,7 @@ Status_Code CAEBot::setup()
 	}
 
 	rng = std::mt19937(dev());
-	slideSleepRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 1);
-	slideLClick = std::uniform_int_distribution<std::mt19937::result_type>(0, (int) round(m_widthPct * 30));
-	slideRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 2);
 	boolRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 1);
-	slideDistanceRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 100);
-	longSleepRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 1000);
 
 	hdc = GetWindowDC(m_window);
 	hDest = CreateCompatibleDC(hdc);

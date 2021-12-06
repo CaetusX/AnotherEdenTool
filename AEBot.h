@@ -145,7 +145,7 @@ private:
 	double m_heightPct, m_widthPct;
 	WORD m_xCenter, m_yCenter;
 
-	int m_msdThreshold;
+	int m_Image_Threshold;
 	int m_loadTime;
 	bool m_IsDebug_Key;
 	bool m_IsDebug_Path;
@@ -300,14 +300,17 @@ private:
 
 	pair<int, int> findIcon(Mat& tmp);
 	pair<int, int> findIconInRegion(Mat& tmp, int cols, int rows, int x, int y);
-	bool compareImage(string imageID, bool toSearch = false);
+	bool compareImage(string imageID);
 	pair<bool, pair<int, int>>  findClickInRegion(string findString, int cols, int rows, int x, int y);
 
-	void leftClick(int x, int y, int sTime = 3000, bool changeLoc = true);
-	void leftClick(pair<int, int>& coord, int sTime = 3000);
+	void leftClick(int x, int y, bool changeLoc = true);
+	void leftClick(int x, int y, int sTime, bool changeLoc = true);
+	void leftClick(pair<int, int>& coord);
+	void leftClick(pair<int, int>& coord, int sTime);
 	void drag(Direction_Info botDirection, int slideDistance, int xStart, int yStart, int sleepTime = 1000, int scrollRatio = 1);
 	void dragMap(Direction_Info botDirection, int slideDistance);
-	void walk(Direction_Info botDirection, int time, int sleepTime = 3000);
+	void walk(Direction_Info botDirection, int time);
+	void walk(Direction_Info botDirection, int time, int sleepTime);
 	bool inBattle();
 	bool endBattle();
 
@@ -319,10 +322,10 @@ private:
 	Status_Code fightUntilEnd();
 	Status_Code walkUntilBattle(Direction_Info botdirection);
 
-	Status_Code engageMobFightNow(int horrorThreshold = 7000);
+	Status_Code engageMobFightNow();
 	Status_Code engageHorrorFightNow(bool restoreHPMP = true);
 
-	void fish(vector<pair<int, int>>& sections, int m_msdThreshold = 10000, int horrorThreshold = 7000);
+	void fish(vector<pair<int, int>>& sections);
 	void changeBait(Bait_Type type);
 	Status_Code goToTargetLocation(vector<pathInfo> pathInfoList);
 	void goToFishingLocation();
@@ -352,7 +355,7 @@ private:
 
 	Status_Code captureImageNow(Mat imagePicCrop, const char* nameSuffix);
 
-	keyvalueInfo parseKeyValue(string str, string parser, bool order = true);
+	keyvalueInfo parseKeyValue(string str, string parser, bool reverseorder = false);
 	pair<int, int> parseXYinfo(string str);
 	pathInfo parsePathStep(string str);
 	void parseDynamicImage(ifstream& file);
