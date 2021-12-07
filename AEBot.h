@@ -7,10 +7,26 @@ using namespace cv::text;
 
 enum Bot_Mode { initialMode, grindingMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, fishingMode, harpoonFishingMode, ratleJumpRope, baruokiJumpRopeMode, silverHitBell30Mode, silverHitBell999Mode, seperateGrastaMode, engageFightMode, captureScreenMode};
 enum Status_Code { 
-	status_NoError, status_Timeout, status_Stop,
-	status_WrongEmulator,
-	status_NotFight, status_FightFail,
-	status_NoHarpoonCatch, status_HarpoonCatchFail, status_HarpoonTrapWaiting, status_HarpoonTrapFail
+	status_NoError				= 0x00000000,
+	status_MajorError			= 0x10000000,
+	status_MinorError			= 0x01000000,
+
+	status_WrongEmulator		= 0x10000001,
+	status_Stop					= 0x10000002,
+
+	status_Timeout				= 0x01000001,
+	status_BreakRun				= 0x01000002,
+
+	status_NotFight				= 0x00100001, 
+	status_FightFail			= 0x00100002,
+
+	status_NoFishing			= 0x00101001,
+	status_FishingNoBait		= 0x00101002,
+	status_FishingHorrorMax		= 0x00101003,
+	status_NoHarpoonCatch		= 0x00101101,
+	status_HarpoonCatchFail		= 0x00101102, 
+	status_HarpoonTrapWaiting	= 0x00101103,
+	status_HarpoonTrapFail		= 0x00101104
 };
 enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special};
 enum Bait_Type { 
@@ -290,6 +306,8 @@ private:
 	void dbgMsg(int debugLevel);
 	void outputMsg();
 	char* timeString();
+	bool checkStatus(Status_Code statuscode);
+
 	void bitBltWholeScreen();
 	void copyPartialPic(Mat& partialPic, int cols, int rows, int x, int y);
 	string runOCR(Mat& pic);
@@ -325,15 +343,15 @@ private:
 	Status_Code engageMobFightNow();
 	Status_Code engageHorrorFightNow(bool restoreHPMP = true);
 
-	void fish(vector<pair<int, int>>& sections);
-	void changeBait(Bait_Type type);
+	Status_Code fish(vector<pair<int, int>>& sections);
+	Status_Code changeBait(Bait_Type type);
 	Status_Code goToTargetLocation(vector<pathInfo> pathInfoList);
 	void goToFishingLocation();
 	void goToSpacetimeRift(bool heal = true);
 	void goToFishVendor();
 	void goToHarpoonVendor();
 	void buyBaitsFromVendor();
-	void fishFunction();
+	Status_Code fishFunction();
 	void fishIconClickFunction();
 	Status_Code harpoonFunction();
 	Status_Code harpoonHorror();

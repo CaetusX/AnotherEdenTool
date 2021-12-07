@@ -171,8 +171,9 @@ void CAEBot::dbgMsg(int debugLevel)
 
 void CAEBot::outputMsg()
 {
-	string str(m_debugMsg);
-	m_outputMsg = str;
+	char debugMsg[1024];
+	snprintf(debugMsg, 1024, "[%s] %s\n", timeString(), m_debugMsg);
+	m_outputMsg = debugMsg;
 }
 
 char* CAEBot::timeString()
@@ -185,6 +186,11 @@ char* CAEBot::timeString()
 	strftime(m_timeString, sizeof(m_timeString), "%Y-%m-%d_%H-%M-%S", &timeinfo);
 
 	return m_timeString;
+}
+
+bool CAEBot::checkStatus(Status_Code statuscode)
+{
+	return (((int)m_resValue & (int)statuscode) == statuscode);
 }
 
 string CAEBot::GetOutputMsg()
@@ -667,7 +673,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 
 	while (!compareImage("World Map"))
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -697,7 +703,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 
 	while (!compareImage("Mini Map"))
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -727,7 +733,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 
 	while (!compareImage("Yes"))
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -757,7 +763,7 @@ Status_Code CAEBot::smartDownUp(Direction_Info updownDirection, Direction_Info l
 
 	while(compareImage("Menu"))
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		snprintf(m_debugMsg, 1024, "smartDownUp %x %x\n", updownDirection, leftrightDirection);
@@ -795,7 +801,7 @@ Status_Code CAEBot::sleepLoadTime()
 
 	while (!compareImage("Menu"))
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -833,7 +839,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 
 	while (!inBattle())
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -990,7 +996,7 @@ Status_Code CAEBot::engageMobFightNow()
 			auto timegap = difftime(currenttime, lastfighttime);
 			if (timegap > m_Time_Out) // return if timeout
 			{
-				break;
+				return status_Timeout;
 			}
 
 			if (inBattle())
@@ -1037,7 +1043,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 
 	while (!inBattle())
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		walk(LEFT, 5000, 200);
@@ -1159,7 +1165,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			auto timegap = difftime(currenttime, lastfighttime);
 			if (timegap > m_Time_Out) // return if timeout
 			{
-				break;
+				return status_Timeout;
 			}
 
 			if (inBattle())
@@ -1183,12 +1189,12 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 
 	Sleep(m_Action_Interval);
 
+	leftClick(m_Button_Yes);
+
 	for (auto i = 0; i < 3; i++)
 	{
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
 	}
-
-	leftClick(m_Button_Yes);
 
 	if (restoreHPMP)
 	{
@@ -1204,7 +1210,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 	return status_NoError;
 }
 
-void CAEBot::fish(vector<pair<int, int>>& sections)
+Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 {
 	//Strategy is to quadrisect the lake and toss into each of the four sections and center
 	int catchIndex = 0, horrorIndex = 0, monsterIndex = 0;
@@ -1244,7 +1250,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 				if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("NOTFISHING");
 
 				leftClick(m_Button_X);
-				return;
+				return status_NoFishing;
 			}
 
 			//Cast line
@@ -1261,7 +1267,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 				} while (i < m_currentBaitsToUse->size() && m_baitList[(*m_currentBaitsToUse)[i]].hasBait == false);
 
 				if (i >= m_currentBaitsToUse->size())
-					return;
+					return status_FishingNoBait;
 
 				changeBait((*m_currentBaitsToUse)[i]);
 				leftClick(sections[j].first, sections[j].second);
@@ -1272,7 +1278,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 				dbgMsg(m_IsDebug_Fishing);
 				outputMsg();
 
-				return;
+				return status_NoFishing;
 			}
 
 			double MSD;
@@ -1390,18 +1396,18 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 										{
 											snprintf(m_debugMsg, 1024, "Fight Horror or Lake Lord failed!\n");
 											dbgMsg(m_IsDebug_Fishing);
-											return;
+											return status_FightFail;
 										}
 										if (horrorIndex >= m_Fight_HorrorCount) // limit the number of horrors / lake lords to fight
 										{
 											snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - Horror count reached\n", m_currentLocation.c_str(), horrorIndex, catchIndex);
 											dbgMsg(m_IsDebug_Fishing);
 											outputMsg();
-											return;
+											return status_FishingHorrorMax;
 										}
 									}
 									else
-										exit(0);
+										return status_BreakRun;
 								}
 								else
 								{
@@ -1446,7 +1452,7 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 						snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - Idling\n", m_currentLocation.c_str(), horrorIndex, catchIndex);
 						dbgMsg(m_IsDebug_Fishing);
 						outputMsg();
-						return;
+						return status_Timeout;
 					}
 				}
 
@@ -1468,9 +1474,11 @@ void CAEBot::fish(vector<pair<int, int>>& sections)
 	snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - All baits tried\n", m_currentLocation.c_str(), horrorIndex, catchIndex);
 	dbgMsg(m_IsDebug_Fishing);
 	outputMsg();
+
+	return status_NoError;
 }
 
-void CAEBot::changeBait(Bait_Type type)
+Status_Code CAEBot::changeBait(Bait_Type type)
 {
 	int slotNum = 0;
 	if (type > 0)
@@ -1497,6 +1505,8 @@ void CAEBot::changeBait(Bait_Type type)
 	}
 	else
 		leftClick(m_Button_Baits[slotNum].xyPosition.first, m_Button_Baits[slotNum].xyPosition.second);
+	
+	return status_NoError;
 };
 
 Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
@@ -1506,7 +1516,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 
 	for (auto j = 0; j < pathInfoList.size(); j++)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		string curType = pathInfoList[j].type;
@@ -1752,7 +1762,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 			}
 		}
 
-		if (m_resValue == status_Timeout)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 	}
 
@@ -1851,65 +1861,74 @@ void CAEBot::buyBaitsFromVendor()
 			break;
 		currText = txt;
 
-		while (txt.compare(m_baitList[j].baitName) != 0 && j < m_baitList.size()) //You don't get the baits in order, so some may be missing depending on your progression (blabber sardines)
+		bool baitfound = false;
+		while (j < m_baitList.size())
 		{
-			snprintf(m_debugMsg, 1024, "Checking (%s) %x %d\n", m_baitList[j].baitName.c_str(), m_baitList[j].hasBait, m_baitList[j].baitNumber);
-			dbgMsg(m_IsDebug_Fishing);
-
-			j++;
+			//You don't get the baits in order, so some may be missing depending on your progression (blabber sardines)
+			if (txt.compare(m_baitList[j].baitName) != 0) {
+				j++;
+			}
+			else
+			{
+				baitfound = true;
+				break;
+			}
 		}
 
-		//Get amount currently held
-		int held = ocrPictureNumber(141, 30, 500, 165);
-		int numToBuy = m_baitList[j].baitNumber - held;
-
-		snprintf(m_debugMsg, 1024, "Buy Bait %s %d\n", txt.c_str(), m_baitList[j].baitNumber);
-		dbgMsg(m_IsDebug_Fishing);
-
-		if (numToBuy > 0)
+		if (baitfound)
 		{
-			//Get amount of fish points owned
-			int fishPoints = ocrPictureNumber(193, 28, 1346, 10);
-			//Get cost of current selected bait
-			double fpCost = m_baitList[j].baitPrice;
-			if (fpCost < fishPoints) //Can we even afford one?
-			{
-				if (numToBuy * fpCost >= fishPoints) //If we don't have enough fish points to buy the max set, then buy as many as we can
-					numToBuy = (int)floor(fishPoints / fpCost);
-			}
+			//Get amount currently held
+			int held = ocrPictureNumber(141, 30, 500, 165);
+			int numToBuy = m_baitList[j].baitNumber - held;
 
-			int thisTimeToBuy;
-			snprintf(m_debugMsg, 1024, "Bait [%d]: %d holding %d to buy %d. buying...\n", i, m_baitList[j].baitNumber, held, numToBuy);
+			snprintf(m_debugMsg, 1024, "Buy Bait %s %d\n", txt.c_str(), m_baitList[j].baitNumber);
 			dbgMsg(m_IsDebug_Fishing);
 
-			for (; numToBuy > 0; numToBuy -= thisTimeToBuy)
+			if (numToBuy > 0)
 			{
-				if (numToBuy > 99)
-					thisTimeToBuy = 99;
-				else
-					thisTimeToBuy = numToBuy;
-
-				if (thisTimeToBuy > 0)
+				//Get amount of fish points owned
+				int fishPoints = ocrPictureNumber(193, 28, 1346, 10);
+				//Get cost of current selected bait
+				double fpCost = m_baitList[j].baitPrice;
+				if (fpCost < fishPoints) //Can we even afford one?
 				{
-					for (int k = 0; k < thisTimeToBuy - 1; k++)
-						leftClick(555, 665, 500);
+					if (numToBuy * fpCost >= fishPoints) //If we don't have enough fish points to buy the max set, then buy as many as we can
+						numToBuy = (int)floor(fishPoints / fpCost);
+				}
 
-					leftClick(350, 850);
-					leftClick(1070, 650);
-					leftClick(880, 575);
+				int thisTimeToBuy;
+				snprintf(m_debugMsg, 1024, "Bait [%d]: %d holding %d to buy %d. buying...\n", i, m_baitList[j].baitNumber, held, numToBuy);
+				dbgMsg(m_IsDebug_Fishing);
 
-					held = ocrPictureNumber(141, 30, 500, 165);
+				for (; numToBuy > 0; numToBuy -= thisTimeToBuy)
+				{
+					if (numToBuy > 99)
+						thisTimeToBuy = 99;
+					else
+						thisTimeToBuy = numToBuy;
+
+					if (thisTimeToBuy > 0)
+					{
+						for (int k = 0; k < thisTimeToBuy - 1; k++)
+							leftClick(555, 665, 500);
+
+						leftClick(350, 850);
+						leftClick(1070, 650);
+						leftClick(880, 575);
+
+						held = ocrPictureNumber(141, 30, 500, 165);
+					}
 				}
 			}
-		}
 
-		m_baitList[j].hasBait = held > 0;
+			m_baitList[j].hasBait = held > 0;
+		}
 	}
 
 	leftClick(m_Button_X);
 }
 
-void CAEBot::fishFunction()
+Status_Code CAEBot::fishFunction()
 {
 	goToSpacetimeRift();
 	goToFishingLocation();
@@ -1917,7 +1936,7 @@ void CAEBot::fishFunction()
 	if (m_currentLocation.compare("Kira Beach") == 0)
 	{
 		//no monster
-		fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Baruoki") == 0)
@@ -1927,7 +1946,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(711, 366);
 
-		fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -1938,7 +1957,7 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(775, 450);
 
-		fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Acteul") == 0)
@@ -1948,7 +1967,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(1029, 367);
 
-		fish(m_Locs_Acteul);
+		m_resValue = fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -1961,7 +1980,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(1004, 448);
 
-		fish(m_Locs_Elzion);
+		m_resValue = fish(m_Locs_Elzion);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -1972,7 +1991,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(935, 455);
 
-		fish(m_Locs_ZolPlains);
+		m_resValue = fish(m_Locs_ZolPlains);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Lake Tillian") == 0)
@@ -1980,7 +1999,7 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(741, 448);
 
-		fish(m_Locs_Acteul);
+		m_resValue = fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Vasu Mountains") == 0)
@@ -1990,7 +2009,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(727, 442);
 
-		fish(m_Locs_Vasu);
+		m_resValue = fish(m_Locs_Vasu);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2001,7 +2020,7 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(623, 448);
 
-		fish(m_Locs_Acteul);
+		m_resValue = fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Moonlight Forest") == 0)
@@ -2009,7 +2028,7 @@ void CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(435, 360);
 
-		fish(m_Locs_Moonlight);
+		m_resValue = fish(m_Locs_Moonlight);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Ancient Battlefield") == 0)
@@ -2017,7 +2036,7 @@ void CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(1300, 455);
 
-		fish(m_Locs_AncientBattlefield);
+		m_resValue = fish(m_Locs_AncientBattlefield);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Snake Neck Igoma") == 0)
@@ -2025,7 +2044,7 @@ void CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(685, 450);
 
-		fish(m_Locs_Igoma);
+		m_resValue = fish(m_Locs_Igoma);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Rinde") == 0)
@@ -2033,7 +2052,7 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(970, 368);
 
-		fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Serena Coast") == 0)
@@ -2043,7 +2062,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(796, 448);
 
-		fish(m_Locs_Acteul);
+		m_resValue = fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2056,7 +2075,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(744, 411);
 
-		fish(m_Locs_RucyanaSands);
+		m_resValue = fish(m_Locs_RucyanaSands);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2067,7 +2086,7 @@ void CAEBot::fishFunction()
 		m_hasHorror = true;
 		m_currentMonsterVec = &m_MonsterVec_LastIsland;
 
-		fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2078,13 +2097,13 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(1068, 400);
 
-		fish(m_Locs_Elzion);
+		m_resValue = fish(m_Locs_Elzion);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Man-Eating Swamp") == 0)
 	{
 		//has monster, no horror
-		fish(m_Locs_Acteul);
+		m_resValue = fish(m_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Charol Plains") == 0)
@@ -2092,7 +2111,7 @@ void CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(840, 456);
 
-		fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dimension Rift") == 0)
@@ -2102,7 +2121,7 @@ void CAEBot::fishFunction()
 
 		m_currentFishIconLoc = make_pair(408, 345);
 
-		fish(m_Locs_DimensionRift);
+		m_resValue = fish(m_Locs_DimensionRift);
 		leftClick(m_Button_Leave);
 
 		m_hasHorror = false;
@@ -2113,7 +2132,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(450, 400);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Plum") == 0)
@@ -2121,7 +2140,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(450, 400);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Outer Wall Bamboo") == 0)
@@ -2129,7 +2148,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(1240, 410);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Bamboo") == 0)
@@ -2137,7 +2156,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(1240, 410);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Inner Wall") == 0)
@@ -2145,7 +2164,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(751, 407);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Inner Wall") == 0)
@@ -2153,7 +2172,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(603, 408);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Outer Wall Pine") == 0)
@@ -2161,7 +2180,7 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(630, 408);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Pine") == 0)
@@ -2169,10 +2188,11 @@ void CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(630, 405);
 
-		fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 
+	return m_resValue;
 }
 
 void CAEBot::fishIconClickFunction()
@@ -2236,6 +2256,25 @@ Status_Code CAEBot::harpoonFunction()
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			return status_HarpoonCatchFail;
+		}
+
+		// it is possible the fish escapes
+		txt = ocrPictureText(1100, 80, 330, 75);
+		// try to search the harpoon
+		// "It nimbly dodged the harpoon!" or "It was too strong and the harpoon was flung away!"
+		if (txt.find("harpoon") != string::npos || txt.find("the") != string::npos)
+		{
+			snprintf(m_debugMsg, 1024, "No catch \"%s\"....\n", txt.c_str());
+			dbgMsg(m_IsDebug_Fishing);
+
+			leftClick(m_Button_PassThrough, m_Action_Interval);
+			return status_HarpoonCatchFail;
+		}
+		// "Your cooling box is full!"
+		else if (txt.find("cooling") != string::npos || txt.find("box") != string::npos || txt.find("full") != string::npos)
+		{
+
+			return status_BreakRun;
 		}
 
 		findclickres = findClickInRegion("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
@@ -2329,7 +2368,7 @@ Status_Code CAEBot::harpoonMassShooting()
 	{
 		for (auto y = m_Harpoon_Ymin * m_heightPct; y <= m_Harpoon_Ymax * m_heightPct; y = y + m_Harpoon_Yinc * m_heightPct)
 		{
-			if (m_resValue == status_Stop)
+			if (checkStatus(status_MajorError))
 				return m_resValue;
 
 			pair<int, int> harpoonhit;
@@ -2391,7 +2430,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 			txt = ocrPictureText(900, 127, 415, 48);
 			while (txt.find("total") == string::npos && txt.find("caught") == string::npos && txt.find("fish") == string::npos)
 			{
-				if (m_resValue == status_Stop)
+				if (checkStatus(status_MajorError))
 					return m_resValue;
 			
 				currenttime = time(NULL);
@@ -2439,140 +2478,6 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	}
 }
 
-/*
-
-	Mat preHarpoonLImg, preHarpoonRImg, postHarpoonLImg, postHarpoonRImg;;
-	double MSD1, MSD2;
-	pair<int, int> findclicktrap, findclicktraplarge, findclickbait1, findclickbait2, findclickbait3, findclickbait4;
-	time_t currenttime, startingtime;
-
-	findclicktrap = findClickInRegion("HarpoonTrap", (int) M_WIDTH, (int) (440 * m_heightPct), 0, (int) (160 * m_heightPct));
-
-	bitBltWholeScreen();
-	copyPartialPic(preHarpoonLImg, 200, 210, (int) (findclicktrap.first / m_widthPct - 250), 190);
-	copyPartialPic(preHarpoonRImg, 200, 210, (int) (findclicktrap.first / m_widthPct + 50), 190);
-
-	leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
-
-	bitBltWholeScreen();
-	copyPartialPic(postHarpoonLImg, 200, 210, (int)(findclicktrap.first / m_widthPct - 250), 190);
-	copyPartialPic(postHarpoonRImg, 200, 210, (int)(findclicktrap.first / m_widthPct + 50), 190);
-
-	MSD1 = cv::norm(preHarpoonLImg, postHarpoonLImg);
-	MSD1 = (MSD1 * MSD1 / preHarpoonLImg.total());
-	MSD2 = cv::norm(preHarpoonRImg, postHarpoonRImg);
-	MSD2 = (MSD2 * MSD2 / preHarpoonRImg.total());
-
-	//snprintf(m_debugMsg, 1024, "MSD1 %f MSD2 %f\n", MSD1, MSD2);
-	//dbgMsg(m_IsDebug_Fishing);
-
-	if (MSD1 > m_Harpoon_Threshold && MSD2 > m_Harpoon_Threshold)
-	{
-		findclicktraplarge = findClickInRegion("HarpoonTrapLarge", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
-		findclickbait1 = findClickInRegion("HarpoonBait1", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
-		findclickbait2 = findClickInRegion("HarpoonBait2", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
-		findclickbait3 = findClickInRegion("HarpoonBait3", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
-		findclickbait4 = findClickInRegion("HarpoonBait4", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
-
-		if ((findclicktraplarge.first > findclicktrap.first - 100 * m_widthPct && findclicktraplarge.first < findclicktrap.first + 100 * m_widthPct &&
-			findclicktraplarge.second > findclicktrap.second - 100 * m_heightPct && findclicktraplarge.second < findclicktrap.second + 100 * m_heightPct)
-			&& ((findclickbait1.first > findclicktrap.first - 220 * m_widthPct && findclickbait1.first < findclicktrap.first + 220 * m_widthPct &&
-				findclickbait1.second > findclicktrap.second - 140 * m_heightPct && findclickbait1.second < findclicktrap.second + 20 * m_heightPct)
-				|| (findclickbait2.first > findclicktrap.first - 220 * m_widthPct && findclickbait2.first < findclicktrap.first + 220 * m_widthPct &&
-					findclickbait2.second > findclicktrap.second - 140 * m_heightPct && findclickbait2.second < findclicktrap.second + 20 * m_heightPct)
-				|| (findclickbait3.first > findclicktrap.first - 220 * m_widthPct && findclickbait3.first < findclicktrap.first + 220 * m_widthPct &&
-					findclickbait3.second > findclicktrap.second - 140 * m_heightPct && findclickbait3.second < findclicktrap.second + 20 * m_heightPct)
-				|| (findclickbait4.first > findclicktrap.first - 220 * m_widthPct && findclickbait4.first < findclicktrap.first + 220 * m_widthPct &&
-					findclickbait4.second > findclicktrap.second - 140 * m_heightPct && findclickbait4.second < findclicktrap.second + 20 * m_heightPct)))
-		{
-			leftClick(findclicktraplarge.first, findclicktraplarge.second, m_Action_Interval, false);
-
-			return harpoonSetTrap(trapRef);
-		}
-		else
-		{
-			snprintf(m_debugMsg, 1024, "Something wrong. Abort trap [%s]\n", trapRef.c_str());
-			dbgMsg(m_IsDebug_Fishing);
-
-			if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonTrapFunction abort");
-
-			for (auto i = 0; i < 3; i++)
-			{
-				leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
-			}
-			return status_HarpoonTrapFail; // something wrong, let's go
-		}
-	}
-	else
-	{
-		string txt = ocrPictureText(900, 65, 415, 48);
-		// Less than xx minute(s) before the
-		// The alertness is rising. There's
-		if (txt.find("before") != string::npos || txt.find("than") != string::npos || txt.find("minute") != string::npos || txt.find("The") != string::npos)
-		{
-			snprintf(m_debugMsg, 1024, "Trap [%s] \"%s\"\n", trapRef.c_str(), txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
-
-			for (auto i = 0; i < 3; i++)
-			{
-				leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
-			}
-			return status_HarpoonTrapWaiting; // still waiting for trap
-		}
-		else
-		{
-			startingtime = time(NULL);
-			// You've caught a total of xx fish
-			txt = ocrPictureText(900, 127, 415, 48);
-			while (txt.find("total") == string::npos && txt.find("caught") == string::npos && txt.find("fish") == string::npos)
-			{
-				if (m_resValue == status_Stop)
-					return m_resValue;
-
-				currenttime = time(NULL);
-				auto timegap = difftime(currenttime, startingtime);
-
-				if (timegap > m_Time_Out) // return if timeout
-				{
-					snprintf(m_debugMsg, 1024, "Time out for Trap [%s]\n", trapRef.c_str());
-					dbgMsg(m_IsDebug_Fishing);
-
-					if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonTrapFunction timeout result");
-
-					for (auto i = 0; i < 3; i++)
-					{
-						leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
-					}
-					return status_Timeout; // time out, something wrong, let's go
-				}
-				else
-				{
-					Sleep(500);
-				}
-
-				txt = ocrPictureText(900, 127, 415, 48);
-			}
-
-			snprintf(m_debugMsg, 1024, "Harvest! Trap [%s] \"%s\"\n", trapRef.c_str(), txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
-			outputMsg();
-
-			leftClick(m_Button_PassThrough, m_Action_Interval);
-
-			for (auto i = 0; i < 3; i++)
-			{
-				leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
-			}
-
-			leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
-
-			leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
-
-			return harpoonSetTrap(trapRef);
-		}
-	}
-*/
-
 Status_Code CAEBot::harpoonSetTrap(string trapRef)
 {
 	string txt;
@@ -2604,11 +2509,29 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 		return status_HarpoonTrapFail;
 	}
 
-	for (auto i = 0; i < 4; i++)
+	// choose the bottom most bait, 792, 636, 480, 324 if we want to buy and baits are still available
+	vector<int> availablebaits;
+	availablebaits.clear();
+	for (int i = (int) m_baitList.size() - 1; i >= harpoonBait_Seaworm; i--)
+	{
+		snprintf(m_debugMsg, 1024, "Bait \"%s\" hasBait %x number %d\n", m_baitList[i].baitName.c_str(), m_baitList[i].hasBait, m_baitList[i].baitNumber);
+		dbgMsg(m_IsDebug_Fishing);
+
+		if (m_baitList[i].hasBait)
+		{
+			availablebaits.push_back(i);
+		}
+	}
+
+	// just in case, click all baits above what we want to use
+	for (int j = (int) availablebaits.size() ; j > 0 ; j--)
 	{
 		// choose the bottom most bait, 792, 636, 480, 324
-		leftClick(780, 792 - i * 156, 1000);
+		leftClick(780, 324 + (j - 1) * 156, 1000);
 	}
+
+	// choose the top most bait just in case
+	leftClick(780, 324, 1000);
 
 	//click to set up the trap
 	leftClick(580, 880);
@@ -2632,7 +2555,7 @@ Status_Code CAEBot::stateFishing()
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		loadFishingConfig();
@@ -2644,7 +2567,7 @@ Status_Code CAEBot::stateFishing()
 		{
 			m_currentBaitsToUse = &(m_fishingSpots[i].baitsToUse);
 			m_currentLocation = m_fishingSpots[i].locationName;
-			fishFunction();
+			m_resValue = fishFunction();
 		}
 	}
 }
@@ -2662,7 +2585,7 @@ Status_Code CAEBot::stateHarpoonFishing()
 			loadPathConfig();
 			loadSettingConfig();
 
-			if (m_resValue == status_Stop)
+			if (checkStatus(status_MajorError))
 				return m_resValue;
 
 			if (!m_Harpoon_SkipVendor && j == 0)
@@ -2685,7 +2608,7 @@ Status_Code CAEBot::stateSilverHitBell(Bot_Mode silverHitBellstate)
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		int i = 0;
@@ -2731,7 +2654,7 @@ Status_Code CAEBot::stateSilverHitBell(Bot_Mode silverHitBellstate)
 		Sleep(j);
 		while (1)
 		{
-			if (m_resValue == status_Stop)
+			if (checkStatus(status_MajorError))
 				return m_resValue;
 
 			if (silverHitBellstate == silverHitBell30Mode && i > 30)
@@ -2809,7 +2732,7 @@ Status_Code CAEBot::stateJumpRopeRatle()
 	int q = 0;
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		Sleep(1);
@@ -2867,7 +2790,7 @@ Status_Code CAEBot::stateJumpRopeBaruoki()
 	int q = 0;
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		Sleep(1);
@@ -2921,7 +2844,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 	int grastaseparated = 0;
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		if (k < m_Grasta_Target)
@@ -3079,12 +3002,12 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 
 	while ((m_currentGrindingCounter < m_Fight_GrindingCount || endlessGrinding) && !m_Fight_GrindingSkipRunning)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		while (!inBattle())
 		{
-			if (m_resValue == status_Stop)
+			if (checkStatus(status_MajorError))
 				return m_resValue;
 
 			currenttime = time(NULL);
@@ -3150,7 +3073,7 @@ Status_Code CAEBot::stateTravelGrinding()
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3167,7 +3090,7 @@ Status_Code CAEBot::stateTravelGrinding()
 				{
 					for (auto k = 0; k < m_grindingSpots[i].second; k++)
 					{
-						if (m_resValue == status_Stop)
+						if (checkStatus(status_MajorError))
 							return m_resValue;
 
 						m_currentGrindingCounter = 0;
@@ -3203,7 +3126,7 @@ Status_Code CAEBot::stateStationGrinding()
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3226,7 +3149,7 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3306,7 +3229,7 @@ Status_Code CAEBot::stateEndlessGrinding()
 
 	while (1)
 	{
-		if (m_resValue == status_Stop)
+		if (checkStatus(status_MajorError))
 			return m_resValue;
 
 		loadPathConfig();
