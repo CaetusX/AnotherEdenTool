@@ -1762,7 +1762,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 			}
 		}
 
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MinorError))
 			return m_resValue;
 	}
 
