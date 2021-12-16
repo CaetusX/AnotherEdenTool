@@ -30,9 +30,18 @@ HWND m_hInfoBox;
 #define GRINDING_LOMSLIME 3
 #define GRINDING_TYPE 4
 
+#define FISHING_ANGLER 0
+#define FISHING_HARPOON 1
+#define FISHING_TYPE 2
+
 string m_grindingType[GRINDING_TYPE] =
 {
     "Endless", "Travel", "Station", "LOM Slime"
+};
+
+string m_fishingType[FISHING_TYPE] =
+{
+    "Angler", "Harpoon"
 };
 
 void AEBotThread(int n)
@@ -46,56 +55,61 @@ void Interface_Init(HWND hDlg, bool botEnabled)
 {
     Bot_Mode botMode;
 
+    SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_ENDLESS, 0);
+    SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_ANGLER, 0);
+
     botMode = m_AEBot->GetMode();
 
     switch (botMode)
     {
-    case grindingMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+    case grindingEndlessMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Grinding);
         SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_ENDLESS, 0);
         break;
     case grindingTravelMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Grinding);
         SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_TRAVEL, 0);
         break;
 	case grindingStationMode:
-		CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+		CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Grinding);
 		SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_STATION, 0);
 		break;
 	case grindingLOMSlimeMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Grinding);
         SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_LOMSLIME, 0);
         break;
-    case fishingMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
-        CheckDlgButton(hDlg, IDC_CHECK_Harpoon, 0);
+    case fishingAnglerMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Fishing);
+        SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_ANGLER, 0);
         break;
-    case harpoonFishingMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
-        CheckDlgButton(hDlg, IDC_CHECK_Harpoon, 1);
+    case fishingHarpoonMode:
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Fishing);
+        SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_HARPOON, 0);
         break;
     case ratleJumpRope:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_JumpRopes);
         CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 0);
         break;
     case baruokiJumpRopeMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_JumpRopes);
         CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 1);
         break;
     case silverHitBell30Mode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_BellStrike);
         CheckDlgButton(hDlg, IDC_CHECK_Target999, 0);
         break;
     case silverHitBell999Mode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_BellStrike);
         CheckDlgButton(hDlg, IDC_CHECK_Target999, 1);
         break;
     case seperateGrastaMode:
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_SeparateGrasta);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_SeparateGrasta);
         break;
+    /*
     case engageFightMode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_EngageHorror);
         break;
+    */
     case captureScreenMode:
     default:
         break;
@@ -117,27 +131,52 @@ void Interface_Grinding(HWND hDlg)
         {
         case GRINDING_TRAVEL:
             m_AEBot->SetMode(grindingTravelMode);
-            wsprintf(strFormat, _T("Travel world to grind.\n\nYou can start anywhere. Please config where to grind and what skill to use in config_setting file\n"));
+            wsprintf(strFormat, _T("Travel world to grind.\r\nYou can start anywhere. Please config where to grind and what skill to use in config_setting file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
 		case GRINDING_STATION:
 			m_AEBot->SetMode(grindingStationMode);
-			wsprintf(strFormat, _T("Stay at the place to collect sparkles.\n\nYou can start anywhere. Please config where to grind in config_setting file\n"));
+			wsprintf(strFormat, _T("Stay at the place to collect sparkles.\r\nYou can start anywhere. Please config where to grind in config_setting file\r\n"));
 			SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
 			break;
 		case GRINDING_LOMSLIME:
             m_AEBot->SetMode(grindingLOMSlimeMode);
-            wsprintf(strFormat, _T("Lord of Mana plantium slime grinding.\n\nYou can start anywhere\n"));
+            wsprintf(strFormat, _T("Lord of Mana plantium slime grinding.\r\nYou can start anywhere\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
-        case GRINDING_ENDLESS:
         default:
-            m_AEBot->SetMode(grindingMode);
-            wsprintf(strFormat, _T("Grinding here.\n\nYou can start here\n"));
+            SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_ENDLESS, 0);
+        case GRINDING_ENDLESS:
+            m_AEBot->SetMode(grindingEndlessMode);
+            wsprintf(strFormat, _T("Grinding here.\r\nYou can start here\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
         }
-        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Grinding);
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Grinding);
+    }
+}
+
+void Interface_fishing(HWND hDlg)
+{
+    UINT nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_GETCURSEL, 0, 0);
+    if (m_AEBot)
+    {
+        switch (nIndex)
+        {
+        case FISHING_HARPOON:
+            m_AEBot->SetMode(fishingHarpoonMode);
+            wsprintf(strFormat, _T("Harpoon Fishing mode.\r\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+        default:
+            SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_ANGLER, 0);
+        case FISHING_ANGLER:
+            m_AEBot->SetMode(fishingAnglerMode);
+            wsprintf(strFormat, _T("Fishing mode.\r\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
+            SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
+            break;
+        }
+        CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_Fishing);
     }
 }
 
@@ -408,6 +447,12 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_ADDSTRING, 0, LPARAM(&grindingname));
         }
 
+        for (auto i = 0; i < FISHING_TYPE; i++)
+        {
+            string grindingname = m_fishingType[i];
+            SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_ADDSTRING, 0, LPARAM(&grindingname));
+        }
+
         botEnabled = false;
         for (auto i = 0; i < m_AEBot->GetEmulatorNumber(); i++)
         {
@@ -446,7 +491,21 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         case IDT_TIMER1:
             if (m_AEBot)
             {
-                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
+                string debugmsg = m_AEBot->GetOutputMsg();
+                if (debugmsg.size() > 0)
+                {
+                    HWND htext = GetDlgItem(hDlg, IDC_InfoText);
+                    int currentlength = GetWindowTextLength(htext);
+                    SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
+                    SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
+                }
+                //GetDlgItemText(hDlg, IDC_InfoText, const_cast<char*>(debugMsg.c_str()), currentlength);
+                //debugMsg.append();
+
+                //HWND htext = GetDlgItem(hDlg, IDC_InfoText);
+                //int currentlength = GetWindowTextLength(htext);
+                //string debugMsg;
+                //SetWindowText(htext, debugMsg.c_str());
             }
         }
         return  (INT_PTR)TRUE;
@@ -459,7 +518,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         switch (LOWORD(wParam))
         {
         case IDC_BUTTON_Refresh:
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, 0);
+            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, 0);
             CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 0);
             CheckDlgButton(hDlg, IDC_CHECK_Target999, 0);
             SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, -1, 0);
@@ -485,7 +544,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             {
                 m_AEBot->captureScreenNow();
                 SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
-                CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, 0);
+                CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, 0);
             }
             break;
 
@@ -535,23 +594,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             break;
 
         case IDC_RADIO_Fishing:
-        case IDC_CHECK_Harpoon:
-            nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_Harpoon);
-            if (m_AEBot)
-            {
-                if (nCheck)
-                {
-                    m_AEBot->SetMode(harpoonFishingMode);
-                    wsprintf(strFormat, _T("Harpoon Fishing mode.\n\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\n"));
-                }
-                else
-                {
-                    m_AEBot->SetMode(fishingMode);
-                    wsprintf(strFormat, _T("Fishing mode.\n\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\n"));
-                }
-                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
-            }
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_Fishing);
+            Interface_fishing(hDlg);
             break;
 
         case IDC_RADIO_JumpRopes:
@@ -562,16 +605,16 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 if (nCheck)
                 {
                     m_AEBot->SetMode(baruokiJumpRopeMode);
-                    wsprintf(strFormat, _T("Baruoki Jump Rope.\n\nGet to the section of text that says \"Ready!\", and then start\n"));
+                    wsprintf(strFormat, _T("Baruoki Jump Rope.\r\nGet to the section of text that says \"Ready!\", and then start\r\n"));
                 }
                 else
                 {
                     m_AEBot->SetMode(ratleJumpRope);
-                    wsprintf(strFormat, _T("Ratle Jump Rope.\n\nGet to the section of text that says \"Are you ready ? GO!\" and then start\n"));
+                    wsprintf(strFormat, _T("Ratle Jump Rope.\r\nGet to the section of text that says \"Are you ready ? GO!\" and then start\r\n"));
                 }
                 SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             }
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_JumpRopes);
+            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_JumpRopes);
             break;
 
         case IDC_RADIO_BellStrike:
@@ -582,16 +625,16 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 if (nCheck)
                 {
                     m_AEBot->SetMode(baruokiJumpRopeMode);
-                    wsprintf(strFormat, _T("Hit Bell 999 times.\n\nUse characters with small head models. Mariel recommended.\nGet to the section of text that says \"...All right, here we go!\" and then start\n"));
+                    wsprintf(strFormat, _T("Hit Bell 999 times.\r\nUse characters with small head models. Mariel recommended.\r\nGet to the section of text that says \"...All right, here we go!\" and then start\r\n"));
                 }
                 else
                 {
                     m_AEBot->SetMode(ratleJumpRope);
-                    wsprintf(strFormat, _T("Hit Bell 30 times multiple runs to win Silver Coin.\n\nUse characters with small head models. Mariel recommended.\nGet to the section of text that says \"...All right, here we go!\" and then start\n"));
+                    wsprintf(strFormat, _T("Hit Bell 30 times multiple runs to win Silver Coin.\r\nUse characters with small head models. Mariel recommended.\r\nGet to the section of text that says \"...All right, here we go!\" and then start\r\n"));
                 }
                 SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             }
-            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_EngageHorror, IDC_RADIO_BellStrike);
+            CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_BellStrike);
             break;
 
         case IDC_RADIO_SeparateGrasta:
@@ -599,19 +642,19 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             {
                 m_AEBot->SetMode(seperateGrastaMode);
             }
-            wsprintf(strFormat, _T("Seperate Grasta.\n\nGo and click separate in grasta panel, then start.\nPlease config what grasta to separate in config_setting file\n"));
+            wsprintf(strFormat, _T("Seperate Grasta.\r\nGo and click separate in grasta panel, then start.\nPlease config what grasta to separate in config_setting file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
-
+        /*
         case IDC_RADIO_EngageHorror:
             if (m_AEBot)
             {
                 m_AEBot->SetMode(engageFightMode);
             }
-            wsprintf(strFormat, _T("Engage a horror fight now.\n\nPlease config what skill to use in config_setting file\n"));
+            wsprintf(strFormat, _T("Engage a horror fight now.\r\nPlease config what skill to use in config_setting file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
-
+        */
         case IDC_COMBO_GrindingType:
             switch (HIWORD(wParam))
             {

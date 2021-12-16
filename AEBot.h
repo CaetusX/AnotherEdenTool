@@ -5,7 +5,16 @@ using namespace cv;
 using namespace std;
 using namespace cv::text;
 
-enum Bot_Mode { initialMode, grindingMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, fishingMode, harpoonFishingMode, ratleJumpRope, baruokiJumpRopeMode, silverHitBell30Mode, silverHitBell999Mode, seperateGrastaMode, engageFightMode, captureScreenMode};
+enum Bot_Mode { initialMode, 
+	grindingEndlessMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, 
+	fishingAnglerMode, fishingHarpoonMode, 
+	ratleJumpRope, baruokiJumpRopeMode, 
+	silverHitBell30Mode, silverHitBell999Mode, 
+	seperateGrastaMode, 
+	captureScreenMode, 
+	engageFightMode
+};
+
 enum Status_Code { 
 	status_NoError				= 0x00000000,
 	status_MajorError			= 0x10000000,
@@ -304,7 +313,6 @@ private:
 	bool m_hasHorror;
 
 	void dbgMsg(int debugLevel);
-	void outputMsg();
 	char* timeString();
 	bool checkStatus(Status_Code statuscode);
 
