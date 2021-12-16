@@ -462,7 +462,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             {
                 SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_SETCURSEL, i, 0);
                 
-                wsprintf(strFormat, _T("Auto Select Emulator [%d] %s successfully"), i, m_AEBot->GetEmulatorName(i));
+                wsprintf(strFormat, _T("Auto Select Emulator [%d] %s successfully\r\n"), i, m_AEBot->GetEmulatorName(i));
                 SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
                 botEnabled = true;
                 break;
@@ -642,7 +642,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             {
                 m_AEBot->SetMode(seperateGrastaMode);
             }
-            wsprintf(strFormat, _T("Seperate Grasta.\r\nGo and click separate in grasta panel, then start.\nPlease config what grasta to separate in config_setting file\r\n"));
+            wsprintf(strFormat, _T("Seperate Grasta.\r\nGo and click separate in grasta panel, then start.\r\nPlease config what grasta to separate in config_setting file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
         /*
@@ -680,12 +680,12 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                     if ( emuStatus == status_NoError)
                     {
                         botEnabled = true;
-                        wsprintf(strFormat, _T("Select Emulator [%d] %s successfully"), nIndex, m_AEBot->GetEmulatorName(nIndex));
+                        wsprintf(strFormat, _T("Select Emulator [%d] %s successfully\r\n"), nIndex, m_AEBot->GetEmulatorName(nIndex));
                     }
                     else 
                     {
                         botEnabled = false;
-                        wsprintf(strFormat, _T("Select Emulator [%d] %s failed"), nIndex, m_AEBot->GetEmulatorName(nIndex));
+                        wsprintf(strFormat, _T("Select Emulator [%d] %s failed\r\n"), nIndex, m_AEBot->GetEmulatorName(nIndex));
                     }
                     SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
 
