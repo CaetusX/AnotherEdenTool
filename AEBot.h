@@ -37,7 +37,12 @@ enum Status_Code {
 	status_HarpoonTrapWaiting	= 0x00101103,
 	status_HarpoonTrapFail		= 0x00101104
 };
-enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special};
+enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
+
+enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_Alphanumeric };
+
+enum Debug_Level { debug_None = 0, debug_Key, debug_Summary, debug_Brief, debug_Detail };
+
 enum Bait_Type { 
 	bait_Fishing_Dango = 0, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, 
 	bait_Foamy_Worm, bait_Bubbly_Worm, bait_Snitch_Sardines, bait_Blabber_Sardines, bait_Crab_Cake, bait_Premium_Crab_Cake, 
@@ -123,6 +128,8 @@ public:
 
 	void SetStatus(Status_Code statusCode);
 	Status_Code GetStatus();
+	Debug_Level GetDebugLevel();
+	void SetDebugLevel(Debug_Level debuglevel);
 	string GetOutputMsg();
 	Bot_Mode GetMode();
 
@@ -135,6 +142,7 @@ public:
 	void init();
 	Status_Code setup();
 	Status_Code run();
+	void reloadConfig();
 
 private:
 
@@ -172,28 +180,27 @@ private:
 
 	int m_Image_Threshold;
 	int m_loadTime;
-	bool m_IsDebug_Key;
+
+	Debug_Level m_Debug_Level;
+
+	bool m_IsDebug_Setting;
+	bool m_IsDebug_Platform;
 	bool m_IsDebug_Path;
 	bool m_IsDebug_Fighting;
 	bool m_IsDebug_Grinding;
 	bool m_IsDebug_Fishing;
 	bool m_IsDebug_Grasta;
 	bool m_IsDebug_LOM;
-	bool m_IsDebug_Setting;
-	bool m_IsDebug_Platform;
 
 	bool m_IsPrint;
 
-	Ptr<OCRTesseract> ocr;
-	HDC hdc;
-	HDC hDest;
-	HBITMAP hbDesktop;
+	Ptr<OCRTesseract> m_ocr;
+	HDC m_hdc;
+	HDC m_hDest;
+	HBITMAP m_hbDesktop;
 
 	Mat m_BitbltPic;
 	Mat afBarEmptyPic, afBarFullPic, hitBellPic, jmpRopePic1, jmpRopePic2, jmpRopePic3, jmpRopePic4, catHokoraPic, harpoonFishPic;
-
-	string ocrNumbers;
-	string ocrLetters;
 
 	vector<Mat> m_Icons;
 	vector<Mat> m_Pictures;
@@ -312,7 +319,7 @@ private:
 	string m_currentLocation;
 	bool m_hasHorror;
 
-	void dbgMsg(int debugLevel);
+	void dbgMsg(int debugGroup, Debug_Level debugLevel);
 	char* timeString();
 	bool checkStatus(Status_Code statuscode);
 
@@ -321,8 +328,7 @@ private:
 	string runOCR(Mat& pic);
 	string getText(Mat& pic);
 	int getNumber(Mat& pic);
-	string ocrPictureText(int columns, int rows, int x, int y);
-	int ocrPictureNumber(int columns, int rows, int x, int y);
+	string ocrPicture(OCR_Type ocrtype, int columns, int rows, int x, int y);
 
 	pair<int, int> findIcon(Mat& tmp);
 	pair<int, int> findIconInRegion(Mat& tmp, int cols, int rows, int x, int y);

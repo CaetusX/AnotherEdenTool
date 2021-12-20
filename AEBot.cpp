@@ -26,6 +26,11 @@ std::random_device dev;
 std::mt19937 rng;
 std::uniform_int_distribution<std::mt19937::result_type> boolRand;
 
+string ocrNumericSet = "1234567890,";
+string ocrAlphabeticSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.'()";
+string ocrAlphanumericSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890,.'()";
+
+
 void ltrimString(string& str)
 {
 	str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](int ch) {
@@ -98,20 +103,19 @@ CAEBot::CAEBot(HWND pParent)
 
 	m_Image_Threshold = 10000;
 	m_loadTime = 3000;
-	m_IsDebug_Key = false;
+
+	m_Debug_Level = debug_Key;
+
+	m_IsDebug_Setting = false;
+	m_IsDebug_Platform = false;
 	m_IsDebug_Path = false;
 	m_IsDebug_Fighting = false;
 	m_IsDebug_Grinding = false;
 	m_IsDebug_Fishing = false;
 	m_IsDebug_Grasta = false;
 	m_IsDebug_LOM = false;
-	m_IsDebug_Setting = false;
-	m_IsDebug_Platform = false;
 
 	m_IsPrint = false;
-
-	ocrNumbers = "1234567890,";
-	ocrLetters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.'()";
 
 	m_Locs_Acteul = { {900, 506}, {675, 377}, {1131, 392}, {657, 643}, {1130, 648}, };
 	m_Locs_Baruoki = { {842, 508}, {632, 409}, {1047, 402}, {630, 634}, {1046, 623}, };
@@ -162,9 +166,9 @@ Status_Code CAEBot::GetStatus()
 	return 	m_resValue;
 }
 
-void CAEBot::dbgMsg(int debugLevel) 
+void CAEBot::dbgMsg(int debugGroup, Debug_Level debugLevel)
 {
-	if (debugLevel)
+	if (debugGroup && (debugLevel <= m_Debug_Level))
 	{
 		char debugMsg[1024];
 		snprintf(debugMsg, 1024, "[%s] %s\r\n", timeString(), m_debugMsg);
@@ -198,6 +202,17 @@ string CAEBot::GetOutputMsg()
 	return outputmsg;
 }
 
+Debug_Level CAEBot::GetDebugLevel()
+{
+	return m_Debug_Level;
+}
+
+void CAEBot::SetDebugLevel(Debug_Level debuglevel)
+{
+	m_Debug_Level = debuglevel;
+}
+
+
 Bot_Mode CAEBot::GetMode()
 {
 	return m_botMode;
@@ -225,7 +240,7 @@ string CAEBot::GetEmulatorName(int emulatorIndex)
 
 void CAEBot::bitBltWholeScreen()
 {
-	BitBlt(hDest, 0, 0, m_width, m_height, hdc, 0, 0, SRCCOPY);
+	BitBlt(m_hDest, 0, 0, m_width, m_height, m_hdc, 0, 0, SRCCOPY);
 }
 
 void CAEBot::copyPartialPic(Mat& partialPic, int cols, int rows, int x, int y)
@@ -245,7 +260,7 @@ string CAEBot::runOCR(Mat& pic)
 	string output;
 	Mat newPic;
 	cvtColor(pic, newPic, COLOR_BGRA2BGR);
-	ocr->run(newPic, output, &boxes, &words, &confidences, OCR_LEVEL_TEXTLINE);
+	m_ocr->run(newPic, output, &boxes, &words, &confidences, OCR_LEVEL_TEXTLINE);
 	if (words.empty())
 		return "";
 	return words[0].substr(0, words[0].size() - 1);
@@ -253,13 +268,13 @@ string CAEBot::runOCR(Mat& pic)
 
 string CAEBot::getText(Mat& pic)
 {
-	ocr->setWhiteList(ocrLetters);
+	m_ocr->setWhiteList(ocrAlphabeticSet);
 	return runOCR(pic);
 }
 
 int CAEBot::getNumber(Mat& pic)
 {
-	ocr->setWhiteList(ocrNumbers);
+	m_ocr->setWhiteList(ocrNumericSet);
 	string strNum = runOCR(pic);
 
 	//Remove any commas
@@ -273,20 +288,22 @@ int CAEBot::getNumber(Mat& pic)
 	return stoi(strNum);
 }
 
-string CAEBot::ocrPictureText(int columns, int rows, int x, int y)
+string CAEBot::ocrPicture(OCR_Type ocrtype, int columns, int rows, int x, int y)
 {
 	bitBltWholeScreen();
 	cv::Mat partialPic;
 	copyPartialPic(partialPic, columns, rows, x, y);
-	return getText(partialPic);
-}
 
-int CAEBot::ocrPictureNumber(int columns, int rows, int x, int y)
-{
-	bitBltWholeScreen();
-	cv::Mat partialPic;
-	copyPartialPic(partialPic, columns, rows, x, y);
-	return getNumber(partialPic);
+	switch (ocrtype)
+	{
+		case ocr_Alphabetic:
+			return getText(partialPic);
+		case ocr_Numeric:
+			return to_string(getNumber(partialPic));
+		case ocr_Alphanumeric:
+		default:
+			return getText(partialPic);
+	}
 }
 
 pair<int, int> CAEBot::findIcon(Mat& tmp)
@@ -360,7 +377,7 @@ bool CAEBot::compareImage(string imageID)
 		pair <int, int> iconlocation = findIcon(target_image);
 
 		snprintf(m_debugMsg, 1024, "compareImage %d %d", iconlocation.first, iconlocation.second);
-		dbgMsg(m_IsDebug_Platform);
+		dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 		copyPartialPic(imagePicCrop, target_w, target_h, (int) (iconlocation.first / m_widthPct), (int) (iconlocation.second / m_heightPct));
 	}
@@ -373,7 +390,7 @@ bool CAEBot::compareImage(string imageID)
 	MSD1 = (MSD1 * MSD1 / target_image.total());
 	
 	snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)", imageID.c_str(), MSD1, m_Image_Threshold);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 	return (MSD1 <= m_Image_Threshold); // something wrong with trap set up window
 }
@@ -423,7 +440,7 @@ pair<bool, pair<int, int>> CAEBot::findClickInRegion(string findString, int cols
 	returnicon.first = (MSD1 < m_Image_Threshold);
 
 	snprintf(m_debugMsg, 1024, "findClickInRegion %x %d %d", returnicon.first, returnicon.second.first, returnicon.second.second);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Brief);
 
 	return returnicon;
 }
@@ -443,7 +460,7 @@ void CAEBot::leftClick(int x, int y, int sTime, bool changeLoc)
 	}
 
 	snprintf(m_debugMsg, 1024, "LeftClick %d %d", x, y);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 	SendMessage(m_window, WM_MOUSEACTIVATE, 0, MAKELPARAM(HTCLIENT, WM_LBUTTONDOWN));
 	SendMessage(m_window, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
@@ -467,7 +484,7 @@ void CAEBot::leftClick(pair<int, int>& coord, int sTime)
 void CAEBot::drag(Direction_Info botDirection, int slideDistance, int xStart, int yStart, int sleepTime, int scrollRatio)
 {
 	snprintf(m_debugMsg, 1024, "drag %d %d %d %d", botDirection, slideDistance, xStart, yStart);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 	xStart = (int)round(xStart * m_widthPct);
 	yStart = (int)round(yStart * m_heightPct);
@@ -565,7 +582,7 @@ void CAEBot::walk(Direction_Info botDirection, int time, int sleepTime)
 		time = slideDistance;
 
 	snprintf(m_debugMsg, 1024, "walk %d %d %d", botDirection, time, sleepTime);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 	//Start walking left
 	SendMessage(m_window, WM_MOUSEACTIVATE, 0, MAKELPARAM(HTCLIENT, WM_LBUTTONDOWN));
@@ -633,12 +650,12 @@ bool CAEBot::inBattle()
 	if (inBattleStatus && inBattleAttack)
 	{
 		snprintf(m_debugMsg, 1024, "in battle %x %x", inBattleStatus, inBattleAttack);
-		dbgMsg(m_IsDebug_Fighting);
+		dbgMsg(m_IsDebug_Fighting, debug_Detail);
 	}
 	else 
 	{
 		snprintf(m_debugMsg, 1024, "not in battle %x %x", inBattleStatus, inBattleAttack);
-		dbgMsg(m_IsDebug_Fighting);
+		dbgMsg(m_IsDebug_Fighting, debug_Detail);
 	}
 
 	return inBattleStatus && inBattleAttack;
@@ -658,7 +675,7 @@ bool CAEBot::endBattle()
 	if (endBattleResult1 || endBattleResult2)
 	{
 		snprintf(m_debugMsg, 1024, "end battle %x %x", endBattleResult1, endBattleResult2);
-		dbgMsg(m_IsDebug_Fighting);
+		dbgMsg(m_IsDebug_Fighting, debug_Detail);
 	}
 
 	return (endBattleResult1 || endBattleResult2);
@@ -681,7 +698,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartWorldMap timeout %d", (int)timegap);
-			dbgMsg(m_IsDebug_Platform);
+			dbgMsg(m_IsDebug_Platform, debug_Brief);
 			return status_Timeout;
 		}
 		else
@@ -711,7 +728,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartMiniMap timeout %d", (int)timegap);
-			dbgMsg(m_IsDebug_Platform);
+			dbgMsg(m_IsDebug_Platform, debug_Brief);
 			return status_Timeout;
 		}
 		else
@@ -741,7 +758,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartLoadMap timeout %d", (int)timegap);
-			dbgMsg(m_IsDebug_Platform);
+			dbgMsg(m_IsDebug_Platform, debug_Brief);
 			return status_Timeout;
 		}
 		else
@@ -767,14 +784,14 @@ Status_Code CAEBot::smartDownUp(Direction_Info updownDirection, Direction_Info l
 			return m_resValue;
 
 		snprintf(m_debugMsg, 1024, "smartDownUp %x %x", updownDirection, leftrightDirection);
-		dbgMsg(m_IsDebug_Platform);
+		dbgMsg(m_IsDebug_Platform, debug_Detail);
 
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartDownUp timeout %d", (int)timegap);
-			dbgMsg(m_IsDebug_Platform);
+			dbgMsg(m_IsDebug_Platform, debug_Detail);
 			return status_Timeout;
 		}
 		else
@@ -786,7 +803,7 @@ Status_Code CAEBot::smartDownUp(Direction_Info updownDirection, Direction_Info l
 	}
 
 	snprintf(m_debugMsg, 1024, "smartDownUp %x %x successful!", updownDirection, leftrightDirection);
-	dbgMsg(m_IsDebug_Platform);
+	dbgMsg(m_IsDebug_Platform, debug_Brief);
 
 	Sleep(m_Action_Interval);
 	return status_NoError;
@@ -809,7 +826,7 @@ Status_Code CAEBot::sleepLoadTime()
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "sleepLoadTime timeout %d", (int)timegap);
-			dbgMsg(m_IsDebug_Path);
+			dbgMsg(m_IsDebug_Path, debug_Brief);
 			return status_Timeout;
 		}
 		else 
@@ -849,7 +866,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 			if (m_IsPrint && m_IsDebug_Fighting) captureScreenNow("walkUntilBattle_timeout");
 
 			snprintf(m_debugMsg, 1024, "walkUntilBattle timeout %d", (int) timegap);
-			dbgMsg(m_IsDebug_Fighting);
+			dbgMsg(m_IsDebug_Fighting, debug_Brief);
 
 			return status_Timeout;
 		}
@@ -891,7 +908,7 @@ Status_Code CAEBot::engageMobFightNow()
 		return status_NotFight;
 
 	snprintf(m_debugMsg, 1024, "Start a battle...");
-	dbgMsg(m_IsDebug_Fighting);
+	dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 	if (m_Fight_GrindingCount)
 	{
@@ -932,7 +949,7 @@ Status_Code CAEBot::engageMobFightNow()
 			isThisPSlime = true;
 
 			snprintf(m_debugMsg, 1024, "Plantium Slime encountered at [%s]", m_currentLocation.c_str());
-			dbgMsg(m_IsDebug_LOM);
+			dbgMsg(m_IsDebug_LOM, debug_Brief);
 		}
 	}
 
@@ -981,12 +998,12 @@ Status_Code CAEBot::engageMobFightNow()
 		}
 
 		snprintf(m_debugMsg, 1024, "[%d] Ready to attack with %x %x %x %x", m_currentGrindingCounter, lastSkillsRow[0], lastSkillsRow[1], lastSkillsRow[2], lastSkillsRow[3]);
-		dbgMsg(m_IsDebug_Fighting);
+		dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 		leftClick(m_Button_Attack, 500);
 
 		snprintf(m_debugMsg, 1024, "After attack");
-		dbgMsg(m_IsDebug_Fighting);
+		dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 		lastfighttime = time(NULL);
 		while (!endBattle())
@@ -1010,7 +1027,7 @@ Status_Code CAEBot::engageMobFightNow()
 	} while (inBattle());
 
 	snprintf(m_debugMsg, 1024, "A battle ends");
-	dbgMsg(m_IsDebug_Fighting);
+	dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 	for (auto i = 0; i < 6; i++)
 	{
@@ -1020,7 +1037,7 @@ Status_Code CAEBot::engageMobFightNow()
 	Sleep(m_Action_Interval);
 
 	snprintf(m_debugMsg, 1024, "End of a battle");
-	dbgMsg(m_IsDebug_Fighting);
+	dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 	return status_NoError;
 }
@@ -1088,7 +1105,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 		if (MSD1 < m_Fight_AFFullThreshold || isAFon)
 		{
 			snprintf(m_debugMsg, 1024, "AF");
-			dbgMsg(m_IsDebug_Fighting);
+			dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 			leftClick(m_Button_AF, m_Fight_AFInterval);
 
@@ -1104,7 +1121,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			} while (MSD2 > 400);
 
 			snprintf(m_debugMsg, 1024, "AF Done");
-			dbgMsg(m_IsDebug_Fighting);
+			dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 			if (m_IsPrint && m_IsDebug_Fighting) captureScreenNow("AFDone");
 
@@ -1116,7 +1133,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			iRun = iRun % num_loop;
 
 			snprintf(m_debugMsg, 1024, "Attack with %d %d %d %d", m_skillsHorrorSet[iRun][0], m_skillsHorrorSet[iRun][1], m_skillsHorrorSet[iRun][2], m_skillsHorrorSet[iRun][3]);
-			dbgMsg(m_IsDebug_Fighting);
+			dbgMsg(m_IsDebug_Fighting, debug_Detail);
 
 			for (auto j = 0; j < m_CharacterFrontline; j++)
 			{
@@ -1219,7 +1236,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 	lastCatch = time(NULL);
 
 	snprintf(m_debugMsg, 1024, "Starting fishing at [%s]", m_currentLocation.c_str());
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Summary);
 
 	Sleep(1000);
 
@@ -1254,7 +1271,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 			//Cast line
 			leftClick(sections[j].first, sections[j].second);
 
-			string status = ocrPictureText(1242, 71, 257, 80);
+			string status = ocrPicture(ocr_Alphabetic, 1242, 71, 257, 80);
 			if (status.find("bait") != string::npos) //Out of bait
 			{
 				m_baitList[(*m_currentBaitsToUse)[i]].hasBait = false;
@@ -1273,7 +1290,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 			else if (status.find("any fish") != string::npos || status.find("box") != string::npos) //Pool is empty or cooler is full
 			{
 				snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d)", m_currentLocation.c_str(), horrorIndex, catchIndex);
-				dbgMsg(m_IsDebug_Fishing);
+				dbgMsg(m_IsDebug_Fishing, debug_Summary);
 
 				return status_NoFishing;
 			}
@@ -1284,11 +1301,11 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 
 			while (1) //This constantly reads the screen looking for either a certain status, or whether a zoom in has occurred
 			{
-				//ocrPictureText() is really cpu intensive, so avoid doing it unless necessary
+				//ocrPicture() is really cpu intensive, so avoid doing it unless necessary
 				if (std::chrono::duration_cast<std::chrono::milliseconds>(chrono::high_resolution_clock::now() - startTime).count() >= 11000 && noFishCheck)
 				{
 					noFishCheck = false;
-					status = ocrPictureText(1242, 71, 257, 80);
+					status = ocrPicture(ocr_Alphabetic, 1242, 71, 257, 80);
 
 					if (status.find("no fish") != string::npos)
 					{
@@ -1381,7 +1398,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 								if (isThisHorror)
 								{
 									snprintf(m_debugMsg, 1024, "Horror or Lake Lord detected at [%s] %d", m_currentLocation.c_str(), horrorIndex);
-									dbgMsg(m_IsDebug_Fishing);
+									dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 									if (m_Fight_HorrorCount)
 									{
@@ -1391,15 +1408,18 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 										if (m_resValue != status_NoError) // failed
 										{
 											snprintf(m_debugMsg, 1024, "Fight Horror or Lake Lord failed!");
-											dbgMsg(m_IsDebug_Fishing);
+											dbgMsg(m_IsDebug_Fishing, debug_Detail);
 											return status_FightFail;
 										}
 										if (horrorIndex >= m_Fight_HorrorCount) // limit the number of horrors / lake lords to fight
 										{
 											snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - Horror count reached", m_currentLocation.c_str(), horrorIndex, catchIndex);
-											dbgMsg(m_IsDebug_Fishing);
+											dbgMsg(m_IsDebug_Fishing, debug_Detail);
 											return status_FishingHorrorMax;
 										}
+
+										snprintf(m_debugMsg, 1024, "Horror or Lake Lord defeated at [%s] %d", m_currentLocation.c_str(), horrorIndex);
+										dbgMsg(m_IsDebug_Fishing, debug_Summary);
 									}
 									else
 										return status_BreakRun;
@@ -1407,7 +1427,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 								else
 								{
 									snprintf(m_debugMsg, 1024, "Fighting at [%s] monster %x", m_currentLocation.c_str(), monsterIndex);
-									dbgMsg(m_IsDebug_Fishing);
+									dbgMsg(m_IsDebug_Fishing, debug_Detail);
 								}
 							}
 
@@ -1416,7 +1436,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 							Sleep(5000);
 
 							snprintf(m_debugMsg, 1024, "Fighting ends at [%s] monster %x", m_currentLocation.c_str(), monsterIndex);
-							dbgMsg(m_IsDebug_Fishing);
+							dbgMsg(m_IsDebug_Fishing, debug_Detail);
 							leftClick(m_Button_PassThrough); //Click past fish results screen
 
 							Sleep(5000);
@@ -1445,7 +1465,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 					if (timegap > m_Time_Out * 5)
 					{
 						snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - Idling", m_currentLocation.c_str(), horrorIndex, catchIndex);
-						dbgMsg(m_IsDebug_Fishing);
+						dbgMsg(m_IsDebug_Fishing, debug_Summary);
 						return status_Timeout;
 					}
 				}
@@ -1466,7 +1486,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 	}
 
 	snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - All baits tried", m_currentLocation.c_str(), horrorIndex, catchIndex);
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Summary);
 
 	return status_NoError;
 }
@@ -1505,7 +1525,7 @@ Status_Code CAEBot::changeBait(Bait_Type type)
 Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 {
 	snprintf(m_debugMsg, 1024, "----> [%s]", m_currentLocation.c_str());
-	dbgMsg(m_IsDebug_Path);
+	dbgMsg(m_IsDebug_Path, debug_Brief);
 
 	for (auto j = 0; j < pathInfoList.size(); j++)
 	{
@@ -1517,7 +1537,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 		string curValue2 = pathInfoList[j].value2;
 
 		snprintf(m_debugMsg, 1024, "%s %s %s", curType.c_str(), curValue1.c_str(), curValue2.c_str());
-		dbgMsg(m_IsDebug_Path);
+		dbgMsg(m_IsDebug_Path, debug_Detail);
 
 		m_resValue = status_NoError;
 		if (curType.compare("Click") == 0)
@@ -1580,7 +1600,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 					if (!isfound)
 					{
 						snprintf(m_debugMsg, 1024, "!!! %s not found", curValue1.c_str());
-						dbgMsg(m_IsDebug_Path);
+						dbgMsg(m_IsDebug_Path, debug_Detail);
 					}
 				}
 			}
@@ -1658,7 +1678,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 				if (!isfound)
 				{
 					snprintf(m_debugMsg, 1024, "!!! %s not found", curValue2.c_str());
-					dbgMsg(m_IsDebug_Path);
+					dbgMsg(m_IsDebug_Path, debug_Detail);
 				}
 			}
 			else 
@@ -1679,7 +1699,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 				if (!isfound)
 				{
 					snprintf(m_debugMsg, 1024, "!!! %s not found", curValue1.c_str());
-					dbgMsg(m_IsDebug_Path);
+					dbgMsg(m_IsDebug_Path, debug_Detail);
 				}
 			}
 		
@@ -1769,7 +1789,7 @@ void CAEBot::goToFishingLocation()
 		if (m_LocationList[i].locationName.compare(m_currentLocation) == 0)
 		{
 			snprintf(m_debugMsg, 1024, "Starting fishing at [%s]", m_currentLocation.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Summary);
 
 			m_resValue = goToTargetLocation(m_LocationList[i].pathStepsList);
 			// no need to care about time out here
@@ -1780,7 +1800,7 @@ void CAEBot::goToFishingLocation()
 void CAEBot::goToSpacetimeRift(bool heal)
 {
 	snprintf(m_debugMsg, 1024, "Space-time Rift [%x]", heal);
-	dbgMsg(m_IsDebug_Path);
+	dbgMsg(m_IsDebug_Path, debug_Detail);
 
 	smartWorldMap(m_Button_Map);
 	leftClick(m_Button_EndOfTimeLoc);
@@ -1848,10 +1868,10 @@ void CAEBot::buyBaitsFromVendor()
 			leftClick(m_Button_Baits[i].xyPosition.first, m_Button_Baits[i].xyPosition.second);
 
 		//If the next one we've done is the same as the last, we've reached the end of the list
-		string txt = ocrPictureText(577, 51, 100, 102);
+		string txt = ocrPicture(ocr_Alphabetic, 577, 51, 100, 102);
 
 		snprintf(m_debugMsg, 1024, "Checking Bait %s(%s) %x %d", txt.c_str(), m_baitList[j].baitName.c_str(), m_baitList[j].hasBait, m_baitList[j].baitNumber);
-		dbgMsg(m_IsDebug_Fishing);
+		dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 		if (currText.compare(txt) == 0)
 			break;
@@ -1874,16 +1894,16 @@ void CAEBot::buyBaitsFromVendor()
 		if (baitfound)
 		{
 			//Get amount currently held
-			int held = ocrPictureNumber(141, 30, 500, 165);
+			int held = stoi(ocrPicture(ocr_Numeric, 141, 30, 500, 165));
 			int numToBuy = m_baitList[j].baitNumber - held;
 
 			snprintf(m_debugMsg, 1024, "Buy Bait %s %d", txt.c_str(), m_baitList[j].baitNumber);
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 			if (numToBuy > 0)
 			{
 				//Get amount of fish points owned
-				int fishPoints = ocrPictureNumber(193, 28, 1346, 10);
+				int fishPoints = stoi(ocrPicture(ocr_Numeric, 193, 28, 1346, 10));
 				//Get cost of current selected bait
 				double fpCost = m_baitList[j].baitPrice;
 				if (fpCost < fishPoints) //Can we even afford one?
@@ -1894,7 +1914,7 @@ void CAEBot::buyBaitsFromVendor()
 
 				int thisTimeToBuy;
 				snprintf(m_debugMsg, 1024, "Bait [%d]: %d holding %d to buy %d. buying...", i, m_baitList[j].baitNumber, held, numToBuy);
-				dbgMsg(m_IsDebug_Fishing);
+				dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 				for (; numToBuy > 0; numToBuy -= thisTimeToBuy)
 				{
@@ -1912,7 +1932,7 @@ void CAEBot::buyBaitsFromVendor()
 						leftClick(1070, 650);
 						leftClick(880, 575);
 
-						held = ocrPictureNumber(141, 30, 500, 165);
+						held = stoi(ocrPicture(ocr_Numeric, 141, 30, 500, 165));
 					}
 				}
 			}
@@ -2235,7 +2255,7 @@ Status_Code CAEBot::harpoonFunction()
 		if (counter >= 4)
 		{
 			snprintf(m_debugMsg, 1024, "Failed %d attemps...", counter + 1);
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 			if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("harpoonFunction");
 
@@ -2243,25 +2263,25 @@ Status_Code CAEBot::harpoonFunction()
 		}
 
 		// it is possible the fish escapes
-		txt = ocrPictureText(1100, 80, 330, 75);
+		txt = ocrPicture(ocr_Alphanumeric, 1100, 80, 330, 75);
 		// try to search the harpoon
 		if (txt.find("harpoon") != string::npos || txt.find("the") != string::npos)
 		{
 			snprintf(m_debugMsg, 1024, "No catch \"%s\"....", txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			return status_HarpoonCatchFail;
 		}
 
 		// it is possible the fish escapes
-		txt = ocrPictureText(1100, 80, 330, 75);
+		txt = ocrPicture(ocr_Alphanumeric, 1100, 80, 330, 75);
 		// try to search the harpoon
 		// "It nimbly dodged the harpoon!" or "It was too strong and the harpoon was flung away!"
 		if (txt.find("harpoon") != string::npos || txt.find("the") != string::npos)
 		{
 			snprintf(m_debugMsg, 1024, "No catch \"%s\"....", txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			return status_HarpoonCatchFail;
@@ -2306,7 +2326,7 @@ Status_Code CAEBot::harpoonFunction()
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Time out. Stop harpoon at [%s]", m_currentLocation.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 			
 			// time out, something wrong, let's go
 			return status_Timeout;
@@ -2314,7 +2334,7 @@ Status_Code CAEBot::harpoonFunction()
 	}
 
 	snprintf(m_debugMsg, 1024, "Harpoon fish %d caught", counter);
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 	for (auto i = 0; i < 3; i++)
 	{
@@ -2342,9 +2362,15 @@ Status_Code CAEBot::harpoonHorror()
 		if (inBattle())
 		{
 			snprintf(m_debugMsg, 1024, "Harpoon Horror encountered at [%s]", m_currentLocation.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 			m_resValue = engageHorrorFightNow(false);
+			if (m_resValue == status_NoError)
+			{
+				snprintf(m_debugMsg, 1024, "Harpoon Horror caught at [%s]", m_currentLocation.c_str());
+				dbgMsg(m_IsDebug_Fishing, debug_Summary);
+			}
+
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			return m_resValue;
 		}
@@ -2385,12 +2411,12 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	pair<bool, pair <int, int>> findclickres;
 	bool findtraplarge;
 
-	findclickres = findClickInRegion("HarpoonTrap", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
+	findclickres = findClickInRegion("HarpoonTrap", (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findclicktrap = findclickres.second;
 
 	leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
 
-	findclickres = findClickInRegion("HarpoonTrapLarge", (int)M_WIDTH, (int)(440 * m_heightPct), 0, (int)(160 * m_heightPct));
+	findclickres = findClickInRegion("HarpoonTrapLarge", (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findtraplarge = findclickres.first;
 	findclicktraplarge = findclickres.second;
 
@@ -2403,13 +2429,13 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	}
 	else 
 	{
-		string txt = ocrPictureText(900, 65, 415, 48);
+		string txt = ocrPicture(ocr_Alphabetic, 900, 65, 415, 48);
 		// Less than xx minute(s) before the
 		// The alertness is rising. There's
 		if (txt.find("before") != string::npos || txt.find("than") != string::npos || txt.find("minute") != string::npos || txt.find("The") != string::npos)
 		{
 			snprintf(m_debugMsg, 1024, "Trap [%s] \"%s\"", trapRef.c_str(), txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			for (auto i = 0; i < 3; i++)
@@ -2422,7 +2448,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 		{
 			startingtime = time(NULL);
 			// You've caught a total of xx fish
-			txt = ocrPictureText(900, 127, 415, 48);
+			txt = ocrPicture(ocr_Alphabetic, 900, 127, 415, 48);
 			while (txt.find("total") == string::npos && txt.find("caught") == string::npos && txt.find("fish") == string::npos)
 			{
 				if (checkStatus(status_MajorError))
@@ -2434,7 +2460,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 				if (timegap > m_Time_Out) // return if timeout
 				{
 					snprintf(m_debugMsg, 1024, "Time out for Trap [%s]", trapRef.c_str());
-					dbgMsg(m_IsDebug_Fishing);
+					dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 					if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonTrapFunction timeout result");
 
@@ -2450,11 +2476,11 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 					Sleep(500);
 				}
 
-				txt = ocrPictureText(900, 127, 415, 48);
+				txt = ocrPicture(ocr_Alphabetic, 900, 127, 415, 48);
 			}
 
 			snprintf(m_debugMsg, 1024, "Harvest! Trap [%s] \"%s\"", trapRef.c_str(), txt.c_str());
-			dbgMsg(m_IsDebug_Fishing);
+			dbgMsg(m_IsDebug_Fishing, debug_Summary);
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 
@@ -2480,7 +2506,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	if (!imageresult) // something wrong with trap set up window
 	{
 		snprintf(m_debugMsg, 1024, "Trap [%s] set up window is wrong", trapRef.c_str());
-		dbgMsg(m_IsDebug_Fishing);
+		dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 		if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonSetupTrap");
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
@@ -2496,7 +2522,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	// click Select
 	leftClick(680, 340);
 
-	txt = ocrPictureText(220, 40, 760, 160);
+	txt = ocrPicture(ocr_Alphabetic, 220, 40, 760, 160);
 	if (txt.find("a") == string::npos && txt.find("e") == string::npos)
 	{
 		leftClick(m_Button_X);
@@ -2509,7 +2535,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	for (int i = (int) m_baitList.size() - 1; i >= harpoonBait_Seaworm; i--)
 	{
 		snprintf(m_debugMsg, 1024, "Bait \"%s\" hasBait %x number %d", m_baitList[i].baitName.c_str(), m_baitList[i].hasBait, m_baitList[i].baitNumber);
-		dbgMsg(m_IsDebug_Fishing);
+		dbgMsg(m_IsDebug_Fishing, debug_Detail);
 
 		if (m_baitList[i].hasBait)
 		{
@@ -2531,7 +2557,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	leftClick(580, 880);
 
 	snprintf(m_debugMsg, 1024, "Trap [%s] set up done", trapRef.c_str());
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 	leftClick(m_Button_PassThrough, m_Action_Interval);
 	for (auto i = 0; i < 3; i++)
@@ -2544,7 +2570,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 Status_Code CAEBot::stateFishing()
 {
 	snprintf(m_debugMsg, 1024, "Start fishing >>>>>>>>>");
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Key);
 
 	while (1)
 	{
@@ -2568,7 +2594,7 @@ Status_Code CAEBot::stateFishing()
 Status_Code CAEBot::stateHarpoonFishing()
 {
 	snprintf(m_debugMsg, 1024, "Start harpoon fishing>>>>>>>>>");
-	dbgMsg(m_IsDebug_Fishing);
+	dbgMsg(m_IsDebug_Fishing, debug_Key);
 
 	while (1)
 	{
@@ -2826,7 +2852,7 @@ Status_Code CAEBot::stateJumpRopeBaruoki()
 Status_Code CAEBot::stateSeparateGrasta()
 {
 	snprintf(m_debugMsg, 1024, "To separate grasta >>>>>>>>>");
-	dbgMsg(m_IsDebug_Grasta);
+	dbgMsg(m_IsDebug_Grasta, debug_Key);
 
 	int i = 0;
 	//Only 4 slots are fully on screen at a time, with the 5th partially visible. 
@@ -2843,17 +2869,17 @@ Status_Code CAEBot::stateSeparateGrasta()
 		if (k < m_Grasta_Target)
 		{
 			snprintf(m_debugMsg, 1024, "Go to grasta [%d]", m_Grasta_Target);
-			dbgMsg(m_IsDebug_Grasta);
+			dbgMsg(m_IsDebug_Grasta, debug_Detail);
 
 			for (; k < m_Grasta_Target; k++)
 			{
 				snprintf(m_debugMsg, 1024, ".");
-				dbgMsg(m_IsDebug_Grasta);
+				dbgMsg(m_IsDebug_Grasta, debug_Detail);
 				drag(DOWN, m_Grasta_ScrollHeight, 1225, 900, 1, m_Grasta_ScrollRatio);
 			}
 
 			snprintf(m_debugMsg, 1024, "located");
-			dbgMsg(m_IsDebug_Grasta);
+			dbgMsg(m_IsDebug_Grasta, debug_Detail);
 			leftClick(m_Grasta_Button[0].xyPosition.first, m_Grasta_Button[0].xyPosition.second, 100);
 		}
 		else
@@ -2869,48 +2895,48 @@ Status_Code CAEBot::stateSeparateGrasta()
 		}
 
 		string txt;
-		txt = ocrPictureText(556, 62, 95, 74);
-		string attr_1 = ocrPictureText(162, 36, 391, 185);
-		int value_1 = ocrPictureNumber(162, 36, 577, 185);
-		string attr_2 = ocrPictureText(162, 36, 391, 241);
-		int value_2 = ocrPictureNumber(162, 36, 577, 241);
+		txt = ocrPicture(ocr_Alphabetic, 556, 62, 95, 74);
+		string attr_1 = ocrPicture(ocr_Alphabetic, 162, 36, 391, 185);
+		int value_1 = stoi(ocrPicture(ocr_Numeric, 162, 36, 577, 185));
+		string attr_2 = ocrPicture(ocr_Alphabetic, 162, 36, 391, 241);
+		int value_2 = stoi(ocrPicture(ocr_Numeric, 162, 36, 577, 241));
 
 		//found grasta to separate
 		snprintf(m_debugMsg, 1024, "Grasta [%d] %s: %s %d %s %d", k, txt.c_str(), attr_1.c_str(), value_1, attr_2.c_str(), value_2);
-		dbgMsg(m_IsDebug_Grasta);
+		dbgMsg(m_IsDebug_Grasta, debug_Detail);
 
 		for (auto j = 0; j < m_Grasta_Names.size(); j++)
 		{
 			if (txt.find(m_Grasta_Names[j]) != string::npos)
 			{
 				snprintf(m_debugMsg, 1024, "To separate grasta[%d] %s: %s %d %s %d", k, txt.c_str(), attr_1.c_str(), value_1, attr_2.c_str(), value_2);
-				dbgMsg(m_IsDebug_Grasta);
+				dbgMsg(m_IsDebug_Grasta, debug_Detail);
 
 				leftClick(350, 870, 500);
 				leftClick(1080, 600, 500);
 
 				string txtOK;
-				txtOK = ocrPictureText(154, 54, 800, 720);
+				txtOK = ocrPicture(ocr_Alphabetic, 154, 54, 800, 720);
 				while (txtOK.find("OK") == string::npos)
 				{
 					snprintf(m_debugMsg, 1024, ".");
-					dbgMsg(m_IsDebug_Grasta);
+					dbgMsg(m_IsDebug_Grasta, debug_Detail);
 					Sleep(500);
-					txtOK = ocrPictureText(154, 54, 800, 720);
+					txtOK = ocrPicture(ocr_Alphabetic, 154, 54, 800, 720);
 				}
 
 				leftClick(880, 750, 500);
 				while (!compareImage("Cat Hokora"))
 				{
 					snprintf(m_debugMsg, 1024, ".");
-					dbgMsg(m_IsDebug_Grasta);
+					dbgMsg(m_IsDebug_Grasta, debug_Detail);
 					Sleep(500);
 				}
 
 				grastaseparated++;
 
 				snprintf(m_debugMsg, 1024, "%s: %s %d %s %d separated. total %d separated", txt.c_str(), attr_1.c_str(), value_1, attr_2.c_str(), value_2, grastaseparated);
-				dbgMsg(m_IsDebug_Grasta);
+				dbgMsg(m_IsDebug_Grasta, debug_Brief);
 
 				k = 0;
 				break;
@@ -2920,7 +2946,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 		if (m_Grasta_NumberCap && grastaseparated >= m_Grasta_NumberCap)
 		{
 			snprintf(m_debugMsg, 1024, "Separate cap reached [%d/%d]", grastaseparated, m_Grasta_NumberCap);
-			dbgMsg(m_IsDebug_Grasta);
+			dbgMsg(m_IsDebug_Grasta, debug_Brief);
 
 			k = 0;
 			grastaseparated = 0;
@@ -2935,7 +2961,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 			while (!compareImage("Cat Hokora"))
 			{
 				snprintf(m_debugMsg, 1024, ".");
-				dbgMsg(m_IsDebug_Grasta);
+				dbgMsg(m_IsDebug_Grasta, debug_Detail);
 				Sleep(500);
 			}
 
@@ -2960,7 +2986,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 			while (!compareImage("Cat Hokora"))
 			{
 				snprintf(m_debugMsg, 1024, ".");
-				dbgMsg(m_IsDebug_Grasta);
+				dbgMsg(m_IsDebug_Grasta, debug_Detail);
 				Sleep(500);
 			}
 		}
@@ -2982,7 +3008,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 	else
 		snprintf(m_debugMsg, 1024, "Start grinding [%s]", m_currentLocation.c_str());
 
-	dbgMsg(m_IsDebug_Grinding);
+	dbgMsg(m_IsDebug_Grinding, debug_Key);
 
 	currenttime = time(NULL);
 	lastFight = currenttime;
@@ -3005,7 +3031,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 			if (forcetimeout && forcetimeout < timegap)
 			{
 				snprintf(m_debugMsg, 1024, "Stop grinding");
-				dbgMsg(m_IsDebug_Grinding);
+				dbgMsg(m_IsDebug_Grinding, debug_Summary);
 
 				return status_NoError;
 			}
@@ -3014,7 +3040,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 			if (timegap > m_Time_Out) // return if timeout
 			{
 				snprintf(m_debugMsg, 1024, "Leaving [%s] - Idling %f", m_currentLocation.c_str(), timegap);
-				dbgMsg(m_IsDebug_Grinding);
+				dbgMsg(m_IsDebug_Grinding, debug_Summary);
 
 				if (m_IsPrint && m_IsDebug_Grinding) captureScreenNow("Idling");
 
@@ -3046,7 +3072,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 	}
 
 	snprintf(m_debugMsg, 1024, "Leaving [%s] (%d) - Counter Number reached", m_currentLocation.c_str(), m_currentGrindingCounter);
-	dbgMsg(m_IsDebug_Grinding);
+	dbgMsg(m_IsDebug_Grinding, debug_Summary);
 
 	leftClick(m_Button_PassThrough);
 
@@ -3056,7 +3082,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 Status_Code CAEBot::stateTravelGrinding()
 {
 	snprintf(m_debugMsg, 1024, "Start travel grinding >>>>>>>>>");
-	dbgMsg(m_IsDebug_Grinding);
+	dbgMsg(m_IsDebug_Grinding, debug_Key);
 
 	while (1)
 	{
@@ -3083,7 +3109,7 @@ Status_Code CAEBot::stateTravelGrinding()
 						m_currentGrindingCounter = 0;
 
 						snprintf(m_debugMsg, 1024, "Preparing to grind [%s]", m_currentLocation.c_str());
-						dbgMsg(m_IsDebug_Grinding);
+						dbgMsg(m_IsDebug_Grinding, debug_Brief);
 
 						if (! m_Fight_GrindingSkipSpaceTimeRift)
 							goToSpacetimeRift();
@@ -3108,6 +3134,9 @@ Status_Code CAEBot::stateTravelGrinding()
 
 Status_Code CAEBot::stateStationGrinding()
 {
+	snprintf(m_debugMsg, 1024, "Start station grinding >>>>>>>>>");
+	dbgMsg(m_IsDebug_Grinding, debug_Key);
+
 	int numloop = 0;
 
 	while (1)
@@ -3119,7 +3148,7 @@ Status_Code CAEBot::stateStationGrinding()
 		loadSettingConfig();
 
 		snprintf(m_debugMsg, 1024, "Preparing to stay here grinding [%d]", numloop);
-		dbgMsg(m_IsDebug_Grinding);
+		dbgMsg(m_IsDebug_Grinding, debug_Brief);
 
 		m_resValue = goToTargetLocation(m_stationGrindingSpot.pathStepsList);
 		// no need to care about the time out here
@@ -3130,7 +3159,7 @@ Status_Code CAEBot::stateStationGrinding()
 Status_Code CAEBot::stateLOMSlimeGrinding()
 {
 	snprintf(m_debugMsg, 1024, "Start LOM Slime grinding >>>>>>>>>");
-	dbgMsg(m_IsDebug_Grinding);
+	dbgMsg(m_IsDebug_Grinding, debug_Key);
 
 	while (1)
 	{
@@ -3172,11 +3201,11 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 		}
 
 		snprintf(m_debugMsg, 1024, "Grinding LOM Slime:::");
-		dbgMsg(m_IsDebug_LOM);
+		dbgMsg(m_IsDebug_LOM, debug_Detail);
 		for (auto i = 0; i < m_grindingSpots.size(); i++)
 		{
 			snprintf(m_debugMsg, 1024, "---> %s %d", (m_grindingSpots[i].first).c_str(), m_grindingSpots[i].second);
-			dbgMsg(m_IsDebug_LOM);
+			dbgMsg(m_IsDebug_LOM, debug_Detail);
 		}
 
 		for (auto i = 0; i < m_grindingSpots.size(); i++)
@@ -3210,7 +3239,7 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 Status_Code CAEBot::stateEndlessGrinding()
 {
 	snprintf(m_debugMsg, 1024, "Start endless grinding >>>>>>>>>");
-	dbgMsg(m_IsDebug_Grinding);
+	dbgMsg(m_IsDebug_Grinding, debug_Key);
 
 	while (1)
 	{
@@ -3236,7 +3265,7 @@ Status_Code CAEBot::captureScreenNow(const char* nameSuffix)
 	snprintf(filename, MAX_PATH, "%s\\%s_%s.jpg", m_CurrentPath, timeString(), nameSuffix);
 
 	snprintf(m_debugMsg, 1024, "%s", filename);
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Platform, debug_Key);
 
 	imwrite(filename, imagePicCrop);
 
@@ -3250,7 +3279,7 @@ Status_Code CAEBot::captureImageNow(Mat imagePicCrop, const char* nameSuffix)
 	snprintf(filename, MAX_PATH, "%s\\%s_%s.jpg", m_CurrentPath, timeString(), nameSuffix);
 
 	snprintf(m_debugMsg, 1024, "%s", filename);
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Platform, debug_Brief);
 
 	imwrite(filename, imagePicCrop);
 
@@ -3391,7 +3420,7 @@ vector<buttonInfo> CAEBot::parseButtons(ifstream& file)
 		nameButton.xyPosition = parseXYinfo(localKeyValue.value);
 
 		snprintf(m_debugMsg, 1024, "Button [%s]: %d %d", (localKeyValue.key).c_str(), nameButton.xyPosition.first, nameButton.xyPosition.second);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 
 		buttonlist.push_back(nameButton);
 	}
@@ -3476,7 +3505,7 @@ vector<string> CAEBot::parseGrastaNames(ifstream& file)
 		if (stoi(localKeyValue.value))
 		{
 			snprintf(m_debugMsg, 1024, "To separate %s", (localKeyValue.key).c_str());
-			dbgMsg(m_IsDebug_Grasta);
+			dbgMsg(m_IsDebug_Grasta, debug_Detail);
 
 			grastanamelist.push_back(localKeyValue.key);
 		}
@@ -3517,7 +3546,7 @@ void CAEBot::parseBaitForArea(ifstream& file, bool constructBait, fishingSpot& a
 			baitsToPurchase[i].baitPrice = baitPrice;
 			baitsToPurchase[i].baitNumber = baitNumber;
 			snprintf(m_debugMsg, 1024, "[%d]%s %.1f %d", (int) i, baitName.c_str(), baitPrice, baitNumber);
-			dbgMsg(m_IsDebug_Setting);
+			dbgMsg(m_IsDebug_Setting, debug_Detail);
 			i = (Bait_Type) (i + 1);
 		}
 		else
@@ -3652,19 +3681,22 @@ void CAEBot::loadSettingConfig()
 		{
 			m_IsPrint = stoi(value);
 		}
-		else if (key.compare("Debug") == 0)
+		else if (key.compare("Debug Type") == 0)
 		{
 			int debugvalue = stol(value, NULL, 2);
 
-			m_IsDebug_Key = debugvalue & 0x1;
-			m_IsDebug_Path = debugvalue & 0x2;
-			m_IsDebug_Fighting = debugvalue & 0x4;
-			m_IsDebug_Grinding = debugvalue & 0x8;
-			m_IsDebug_Fishing = debugvalue & 0x10;
-			m_IsDebug_Grasta = debugvalue & 0x20;
-			m_IsDebug_LOM = debugvalue & 0x40;
-			m_IsDebug_Setting = debugvalue & 0x80;
-			m_IsDebug_Platform = debugvalue & 0x100;
+			m_IsDebug_Setting = debugvalue & 0x1;
+			m_IsDebug_Platform = debugvalue & 0x2;
+			m_IsDebug_Path = debugvalue & 0x4;
+			m_IsDebug_Fighting = debugvalue & 0x8;
+			m_IsDebug_Grinding = debugvalue & 0x10;
+			m_IsDebug_Fishing = debugvalue & 0x20;
+			m_IsDebug_Grasta = debugvalue & 0x40;
+			m_IsDebug_LOM = debugvalue & 0x80;
+		}
+		else if (key.compare("Debug Level") == 0)
+		{
+			m_Debug_Level = (Debug_Level) stoi(value);
 		}
 
 		/********************/
@@ -3763,10 +3795,6 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("Harpoon Interval") == 0)
 		{
 			m_Harpoon_Interval = stoi(value);
-		}
-		else if (key.compare("Harpoon Threshold") == 0)
-		{
-			m_Harpoon_Threshold = stoi(value);
 		}
 
 		/************************/
@@ -3925,34 +3953,34 @@ void CAEBot::loadSettingConfig()
 	}
 
 	snprintf(m_debugMsg, 1024, "SkillsHorrorSet:::");
-	dbgMsg(m_IsDebug_Setting);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 
 	for (auto j = 0; j < m_skillsHorrorSet.size(); j++)
 	{
 		snprintf(m_debugMsg, 1024, "Turn [%d]: %d %d %d %d", j, m_skillsHorrorSet[j][0], m_skillsHorrorSet[j][1], m_skillsHorrorSet[j][2], m_skillsHorrorSet[j][3]);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 
 	snprintf(m_debugMsg, 1024, "SkillsMobSet:::");
-	dbgMsg(m_IsDebug_Setting);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 
 	for (auto j = 0; j < m_skillsMobSet.size(); j++)
 	{
 		snprintf(m_debugMsg, 1024, "Turn [%d]: %d %d %d %d", j, m_skillsMobSet[j][0], m_skillsMobSet[j][1], m_skillsMobSet[j][2], m_skillsMobSet[j][3]);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 
 	snprintf(m_debugMsg, 1024, "Grinding:::");
-	dbgMsg(m_IsDebug_Setting);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 
 	for (auto j = 0; j < m_grindingSpots.size(); j++)
 	{
 		snprintf(m_debugMsg, 1024, "---> %s %d", (m_grindingSpots[j].first).c_str(), m_grindingSpots[j].second);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 
 	snprintf(m_debugMsg, 1024, "<<<< Setting profile loaded! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 }
 
 void CAEBot::loadFishingConfig()
@@ -4032,16 +4060,16 @@ void CAEBot::loadFishingConfig()
 	}
 
 	snprintf(m_debugMsg, 1024, "Fishing:::");
-	dbgMsg(m_IsDebug_Setting);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 	for (auto j = 0; j < m_fishingSpots.size(); j++)
 	{
 		snprintf(m_debugMsg, 1024, "---> Fishing %s order %d", (m_fishingSpots[j].locationName).c_str(), m_fishingSpots[j].orderNumber);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 	for (auto j = 0; j < m_harpoonSpots.size(); j++)
 	{
 		snprintf(m_debugMsg, 1024, "---> Harpoon %s order %d", (m_harpoonSpots[j].first).c_str(), m_harpoonSpots[j].second);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 
 	std::sort(m_fishingSpots.begin(), m_fishingSpots.end(), [](fishingSpot& lhs, fishingSpot& rhs) { return lhs.orderNumber < rhs.orderNumber; });
@@ -4058,11 +4086,11 @@ void CAEBot::loadFishingConfig()
 	for (int i = 0; i < m_baitList.size(); i++)
 	{
 		snprintf(m_debugMsg, 1024, "Bait \"%s\" to buy %x number %d", m_baitList[i].baitName.c_str(), m_baitList[i].hasBait, m_baitList[i].baitNumber);
-		dbgMsg(m_IsDebug_Setting);
+		dbgMsg(m_IsDebug_Setting, debug_Brief);
 	}
 
 	snprintf(m_debugMsg, 1024, "<<<< Fishing profile loaded! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Setting, debug_Brief);
 }
 
 void CAEBot::loadPathConfig()
@@ -4105,7 +4133,7 @@ void CAEBot::loadPathConfig()
 	}
 
 	snprintf(m_debugMsg, 1024, "<<<< Path profile loaded! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Setting, debug_Summary);
 }
 
 void CAEBot::loadConfig()
@@ -4192,18 +4220,17 @@ void CAEBot::loadConfig()
 		}
 	}
 
-	/*
 	snprintf(m_debugMsg, 1024, "Total %d Emulators and choose [%d]::", m_emulatorNumber, m_emulatorIndex);
-	dbgMsg(true);
+	dbgMsg(true, debug_Key);
 
 	for (auto j = 0; j < m_emulatorNumber; j++)
 	{
 		snprintf(m_debugMsg, 1024, "[%d] %s %s %s %s", j, m_emulatorList[j].name.c_str(), m_emulatorList[j].windowName.c_str(), m_emulatorList[j].exeName.c_str(), m_emulatorList[j].innerWindowName.c_str());
-		dbgMsg(true);
+		dbgMsg(true, debug_Key);
 	}
-	*/
+
 	snprintf(m_debugMsg, 1024, "<<<< Configuration loaded! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(true, debug_Summary);
 }
 
 void CAEBot::init()
@@ -4214,7 +4241,7 @@ void CAEBot::init()
 	loadFishingConfig();
 
 	snprintf(m_debugMsg, 1024, "<<<< Initiated! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Setting, debug_Summary);
 }
 
 Status_Code CAEBot::setup()
@@ -4233,7 +4260,7 @@ Status_Code CAEBot::setup()
 	if (emuStatus)
 		return status_WrongEmulator;
 
-	ocr = OCRTesseract::create(NULL, NULL, NULL, OEM_TESSERACT_ONLY, PSM_SINGLE_LINE);
+	m_ocr = OCRTesseract::create(NULL, NULL, NULL, OEM_TESSERACT_ONLY, PSM_SINGLE_LINE);
 
 	RECT rect;
 	GetWindowRect(m_window, &rect);
@@ -4306,8 +4333,8 @@ Status_Code CAEBot::setup()
 	rng = std::mt19937(dev());
 	boolRand = std::uniform_int_distribution<std::mt19937::result_type>(0, 1);
 
-	hdc = GetWindowDC(m_window);
-	hDest = CreateCompatibleDC(hdc);
+	m_hdc = GetWindowDC(m_window);
+	m_hDest = CreateCompatibleDC(m_hdc);
 
 	void* ptrBitmapPixels;
 
@@ -4318,14 +4345,14 @@ Status_Code CAEBot::setup()
 	bi.bmiHeader.biHeight = -m_height;
 	bi.bmiHeader.biPlanes = 1;
 	bi.bmiHeader.biBitCount = 32;
-	hbDesktop = CreateDIBSection(hdc, &bi, DIB_RGB_COLORS, &ptrBitmapPixels, NULL, 0);
+	m_hbDesktop = CreateDIBSection(m_hdc, &bi, DIB_RGB_COLORS, &ptrBitmapPixels, NULL, 0);
 
-	SelectObject(hDest, hbDesktop);
+	SelectObject(m_hDest, m_hbDesktop);
 
 	m_BitbltPic = Mat(m_height, m_width, CV_8UC4, ptrBitmapPixels, 0);
 
 	snprintf(m_debugMsg, 1024, "<<<< Setup completed! >>>>");
-	dbgMsg(m_IsDebug_Key);
+	dbgMsg(m_IsDebug_Setting, debug_Summary);
 	return status_NoError;
 }
 
@@ -4382,6 +4409,14 @@ Status_Code CAEBot::run()
 	}
 
 	return m_resValue;
+}
+
+void CAEBot::reloadConfig()
+{
+	// reload config files
+	loadFishingConfig();
+	loadPathConfig();
+	loadSettingConfig();
 }
 
 int main(int argc, char* argv[])

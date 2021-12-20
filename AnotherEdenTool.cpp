@@ -28,20 +28,32 @@ HWND m_hInfoBox;
 #define GRINDING_TRAVEL 1
 #define GRINDING_STATION 2
 #define GRINDING_LOMSLIME 3
-#define GRINDING_TYPE 4
+#define GRINDING_TYPE_NUMBER 4
 
 #define FISHING_ANGLER 0
 #define FISHING_HARPOON 1
-#define FISHING_TYPE 2
+#define FISHING_TYPE_NUMBER 2
 
-string m_grindingType[GRINDING_TYPE] =
+#define DEBUG_NONE 0
+#define DEBUG_KEY 1
+#define DEBUG_SUMMARY 2
+#define DEBUG_BRIEF 3
+#define DEBUG_DETAIL 4
+#define DEBUG_LEVEL_NUMBER 5
+
+string m_grindingType[GRINDING_TYPE_NUMBER] =
 {
     "Endless", "Travel", "Station", "LOM Slime"
 };
 
-string m_fishingType[FISHING_TYPE] =
+string m_fishingType[FISHING_TYPE_NUMBER] =
 {
     "Angler", "Harpoon"
+};
+
+string m_debugLevel[DEBUG_LEVEL_NUMBER] =
+{
+    "No Message", "Key Message", "Summary", "Brief", "Detail"
 };
 
 void AEBotThread(int n)
@@ -54,11 +66,14 @@ void AEBotThread(int n)
 void Interface_Init(HWND hDlg, bool botEnabled)
 {
     Bot_Mode botMode;
+    Debug_Level debuglevel;
 
     SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_SETCURSEL, GRINDING_ENDLESS, 0);
     SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_ANGLER, 0);
 
     botMode = m_AEBot->GetMode();
+    debuglevel = m_AEBot->GetDebugLevel();
+    SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_SETCURSEL, debuglevel, 0);
 
     switch (botMode)
     {
@@ -384,8 +399,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
+            HDC m_hdc = BeginPaint(hWnd, &ps);
+            // TODO: Add any drawing code that uses m_hdc here...
             EndPaint(hWnd, &ps);
         }
         break;
@@ -441,16 +456,22 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SendDlgItemMessage(hDlg, IDC_EMULATORLIST, CB_ADDSTRING, 0, LPARAM(&emuname));
         }
 
-        for (auto i = 0; i < GRINDING_TYPE; i++)
+        for (auto i = 0; i < GRINDING_TYPE_NUMBER; i++)
         {
-            string grindingname = m_grindingType[i];
-            SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_ADDSTRING, 0, LPARAM(&grindingname));
+            string grindingtype = m_grindingType[i];
+            SendDlgItemMessage(hDlg, IDC_COMBO_GrindingType, CB_ADDSTRING, 0, LPARAM(&grindingtype));
         }
 
-        for (auto i = 0; i < FISHING_TYPE; i++)
+        for (auto i = 0; i < FISHING_TYPE_NUMBER; i++)
         {
-            string grindingname = m_fishingType[i];
-            SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_ADDSTRING, 0, LPARAM(&grindingname));
+            string fishingtype = m_fishingType[i];
+            SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_ADDSTRING, 0, LPARAM(&fishingtype));
+        }
+
+        for (auto i = 0; i < DEBUG_LEVEL_NUMBER; i++)
+        {
+            string debuglevel = m_debugLevel[i];
+            SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_ADDSTRING, 0, LPARAM(&debuglevel));
         }
 
         botEnabled = false;
@@ -491,6 +512,16 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         case IDT_TIMER1:
             if (m_AEBot)
             {
+                UINT nIndex;
+                Debug_Level debuglevel = m_AEBot->GetDebugLevel();
+
+                nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_GETCURSEL, 0, 0);
+
+                if (nIndex != debuglevel)
+                {
+                    m_AEBot->SetDebugLevel((Debug_Level)nIndex);
+                }
+
                 string debugmsg = m_AEBot->GetOutputMsg();
                 if (debugmsg.size() > 0)
                 {
@@ -513,7 +544,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
     case WM_COMMAND:
         // Parse the menu selections:
         string str;
-        UINT nCheck;
+        UINT nCheck, nIndex;
 
         switch (LOWORD(wParam))
         {
@@ -537,15 +568,9 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             m_AEBot = new CAEBot();
             m_AEBot->init();
 
-            break;
+            nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_GETCURSEL, 0, 0);
+            m_AEBot->SetDebugLevel((Debug_Level)nIndex);
 
-        case IDC_BUTTON_CaptureScreen:
-            if (m_AEBot)
-            {
-                m_AEBot->captureScreenNow();
-                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
-                CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, 0);
-            }
             break;
 
         case IDC_BUTTON_Start:
@@ -588,6 +613,24 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             }
             //PostQuitMessage(0);
             return (INT_PTR)TRUE;
+
+        case IDC_BUTTON_Reload:
+            if (m_AEBot)
+            {
+                m_AEBot->reloadConfig();
+
+                Debug_Level debuglevel = m_AEBot->GetDebugLevel();
+                SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_SETCURSEL, debuglevel, 0);
+            }
+            break;
+
+        case IDC_BUTTON_CaptureScreen:
+            if (m_AEBot)
+            {
+                m_AEBot->captureScreenNow();
+                SetWindowText(GetDlgItem(hDlg, IDC_InfoText), (m_AEBot->GetOutputMsg()).c_str());
+            }
+            break;
 
         case IDC_RADIO_Grinding:
             Interface_Grinding(hDlg);

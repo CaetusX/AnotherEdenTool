@@ -13,13 +13,14 @@
 #define IDI_SMALL                       108
 #define IDC_ANOTHEREDENTOOL             109
 #define IDR_MAINFRAME                   110
-#define IDC_EDIT1                       1000
 #define IDC_EMULATORLIST                1001
 #define IDC_InfoText                    1002
 #define IDC_BUTTON_Refresh              1003
 #define IDC_BUTTON_Stop                 1004
+#define IDC_BUTTON_Reload               1005
+#define IDC_BUTTON_CaptureScreen        1006
+#define IDC_COMBO_DebugLevel            1007
 #define IDC_CONTROLUNIT_START           1011
-#define IDC_BUTTON_CaptureScreen        1011
 #define IDC_BUTTON_Start                1012
 #define IDC_RADIO_Grinding              1013
 #define IDC_RADIO_Fishing               1014
