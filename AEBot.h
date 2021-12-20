@@ -200,24 +200,26 @@ private:
 	HBITMAP m_hbDesktop;
 
 	Mat m_BitbltPic;
-	Mat afBarEmptyPic, afBarFullPic, hitBellPic, jmpRopePic1, jmpRopePic2, jmpRopePic3, jmpRopePic4, catHokoraPic, harpoonFishPic;
 
 	vector<Mat> m_Icons;
 	vector<Mat> m_Pictures;
 
-	vector<pair<int, int>> m_Locs_Acteul;
-	vector<pair<int, int>> m_Locs_Baruoki;
-	vector<pair<int, int>> m_Locs_DragonPalace;
-	vector<pair<int, int>> m_Locs_Elzion;
-	vector<pair<int, int>> m_Locs_DimensionRift;
-	vector<pair<int, int>> m_Locs_KiraBeach;
-	vector<pair<int, int>> m_Locs_RucyanaSands;
-	vector<pair<int, int>> m_Locs_Vasu;
-	vector<pair<int, int>> m_Locs_Igoma;
-	vector<pair<int, int>> m_Locs_Moonlight;
-	vector<pair<int, int>> m_Locs_AncientBattlefield;
-	vector<pair<int, int>> m_Locs_ZolPlains;
-	vector<pair<int, int>> m_Locs_Default;
+	vector<pair<int, int>> m_Fishing_Locs_Acteul;
+	vector<pair<int, int>> m_Fishing_Locs_Baruoki;
+	vector<pair<int, int>> m_Fishing_Locs_DragonPalace;
+	vector<pair<int, int>> m_Fishing_Locs_Elzion;
+	vector<pair<int, int>> m_Fishing_Locs_DimensionRift;
+	vector<pair<int, int>> m_Fishing_Locs_KiraBeach;
+	vector<pair<int, int>> m_Fishing_Locs_RucyanaSands;
+	vector<pair<int, int>> m_Fishing_Locs_Vasu;
+	vector<pair<int, int>> m_Fishing_Locs_Igoma;
+	vector<pair<int, int>> m_Fishing_Locs_Moonlight;
+	vector<pair<int, int>> m_Fishing_Locs_AncientBattlefield;
+	vector<pair<int, int>> m_Fishing_Locs_ZolPlains;
+	vector<pair<int, int>> m_Fishing_Locs_Default;
+
+	bool m_Fishing_HasHorror;
+	bool m_Fishing_HasMob;
 
 	vector<buttonInfo> m_Button_MapButtons;
 	vector<buttonInfo> m_Button_Characters;
@@ -269,7 +271,6 @@ private:
 	int m_Harpoon_Ymax;
 	bool m_Harpoon_SkipVendor;
 	int m_Harpoon_Interval;
-	int m_Harpoon_Threshold;
 
 	vector<vector<int>> m_skillsHorrorSet;
 	vector<vector<int>> m_skillsMobSet;
@@ -292,17 +293,6 @@ private:
 	pair<int, int> m_Button_Tree;
 	pair<int, int> m_Button_PassThrough;
 
-	vector<Mat>* m_currentMonsterVec = NULL;
-	vector<Mat> m_MonsterVec_Baruoki;
-	vector<Mat> m_MonsterVec_Acteul;
-	vector<Mat> m_MonsterVec_Vasu;
-	vector<Mat> m_MonsterVec_Serena;
-	vector<Mat> m_MonsterVec_Rucyana;
-	vector<Mat> m_MonsterVec_Elzion;
-	vector<Mat> m_MonsterVec_LastIsland;
-	vector<Mat> m_MonsterVec_DimensionRift;
-	vector<Mat> m_MonsterVec_LOMPSlime;
-
 	vector<baitInfo> m_baitList; //Index is the type, the boolean is whether or not you have greater than 0 currently held, int is how many to buy for this run
 	vector<Bait_Type>* m_currentBaitsToUse;
 
@@ -317,7 +307,6 @@ private:
 
 	pair<int, int> m_currentFishIconLoc;
 	string m_currentLocation;
-	bool m_hasHorror;
 
 	void dbgMsg(int debugGroup, Debug_Level debugLevel);
 	char* timeString();
@@ -332,8 +321,9 @@ private:
 
 	pair<int, int> findIcon(Mat& tmp);
 	pair<int, int> findIconInRegion(Mat& tmp, int cols, int rows, int x, int y);
+	imageInfo retrieveImage(string imageID);
 	bool compareImage(string imageID);
-	pair<bool, pair<int, int>>  findClickInRegion(string findString, int cols, int rows, int x, int y);
+	pair<bool, pair<int, int>> findClick(string imageID, int cols, int rows, int x, int y);
 
 	void leftClick(int x, int y, bool changeLoc = true);
 	void leftClick(int x, int y, int sTime, bool changeLoc = true);

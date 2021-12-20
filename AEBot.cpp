@@ -117,19 +117,19 @@ CAEBot::CAEBot(HWND pParent)
 
 	m_IsPrint = false;
 
-	m_Locs_Acteul = { {900, 506}, {675, 377}, {1131, 392}, {657, 643}, {1130, 648}, };
-	m_Locs_Baruoki = { {842, 508}, {632, 409}, {1047, 402}, {630, 634}, {1046, 623}, };
-	m_Locs_DragonPalace = { {870, 483}, {654, 402}, {1055, 399}, {673, 580}, {1069, 596}, };
-	m_Locs_Elzion = { {909, 517}, {691, 397}, {1154, 429}, {673, 643}, {1166, 659}, };
-	m_Locs_DimensionRift = { {887, 481}, {604, 470}, {1112, 471} };
-	m_Locs_KiraBeach = { {936, 533}, {697, 389}, {1180, 404}, {705, 686}, {1173, 687} };
-	m_Locs_RucyanaSands = { {862, 494}, {650, 398}, {1080, 403}, {632, 603}, {1103, 622} };
-	m_Locs_Vasu = { {879, 492}, {626, 395}, {1133, 399}, {612, 598}, {1166, 614} };
-	m_Locs_Igoma = { {880, 510}, {600, 420}, {1135, 425}, {630, 610}, {1120, 620} };
-	m_Locs_Moonlight = { {920, 435}, {635, 280}, {1215, 300}, {625, 580}, {1215, 575} };
-	m_Locs_AncientBattlefield = { {890, 475}, {645, 385}, {1115, 385}, {660, 570}, {1135, 575} };
-	m_Locs_ZolPlains = { {850, 515}, {560, 410}, {1115, 400}, {545, 640}, {885, 675} };
-	m_Locs_Default = { {850, 490}, {700, 430}, {1000, 430}, {710, 570}, {880, 570} };
+	m_Fishing_Locs_Acteul = { {900, 506}, {675, 377}, {1131, 392}, {657, 643}, {1130, 648}, };
+	m_Fishing_Locs_Baruoki = { {842, 508}, {632, 409}, {1047, 402}, {630, 634}, {1046, 623}, };
+	m_Fishing_Locs_DragonPalace = { {870, 483}, {654, 402}, {1055, 399}, {673, 580}, {1069, 596}, };
+	m_Fishing_Locs_Elzion = { {909, 517}, {691, 397}, {1154, 429}, {673, 643}, {1166, 659}, };
+	m_Fishing_Locs_DimensionRift = { {887, 481}, {604, 470}, {1112, 471} };
+	m_Fishing_Locs_KiraBeach = { {936, 533}, {697, 389}, {1180, 404}, {705, 686}, {1173, 687} };
+	m_Fishing_Locs_RucyanaSands = { {862, 494}, {650, 398}, {1080, 403}, {632, 603}, {1103, 622} };
+	m_Fishing_Locs_Vasu = { {879, 492}, {626, 395}, {1133, 399}, {612, 598}, {1166, 614} };
+	m_Fishing_Locs_Igoma = { {880, 510}, {600, 420}, {1135, 425}, {630, 610}, {1120, 620} };
+	m_Fishing_Locs_Moonlight = { {920, 435}, {635, 280}, {1215, 300}, {625, 580}, {1215, 575} };
+	m_Fishing_Locs_AncientBattlefield = { {890, 475}, {645, 385}, {1115, 385}, {660, 570}, {1135, 575} };
+	m_Fishing_Locs_ZolPlains = { {850, 515}, {560, 410}, {1115, 400}, {545, 640}, {885, 675} };
+	m_Fishing_Locs_Default = { {850, 490}, {700, 430}, {1000, 430}, {710, 570}, {880, 570} };
 
 	m_Skill_Normal = 0;
 	m_Skill_Exchange = 5;
@@ -139,8 +139,7 @@ CAEBot::CAEBot(HWND pParent)
 	m_Skill_for_AF = 3;
 	m_CharacterFrontline = 4;
 
-	m_currentMonsterVec = NULL;
-	m_hasHorror = false;
+	m_Fishing_HasHorror = false;
 	m_resValue = status_NoError;
 	m_botMode = initialMode;
 
@@ -348,10 +347,24 @@ pair<int, int> CAEBot::findIconInRegion(Mat& tmp, int cols, int rows, int x, int
 	return make_pair((int) target_x, (int) target_y);
 }
 
+imageInfo CAEBot::retrieveImage(string imageID)
+{
+	imageInfo returnimageinfo;
+	for (auto k = 0; k < m_DynamicImage.size(); k++)
+	{
+		if (imageID.compare(m_DynamicImage[k].id) == 0)
+		{
+			returnimageinfo = m_DynamicImage[k];
+		}
+	}
+
+	return returnimageinfo;
+}
+
 bool CAEBot::compareImage(string imageID)
 {
 	Mat imagePicCrop, target_image;
-	double MSD1;
+	double lastMSD = m_Image_Threshold;
 
 	int target_x = 0;
 	int target_y = 0;
@@ -367,80 +380,80 @@ bool CAEBot::compareImage(string imageID)
 			target_y = m_DynamicImage[k].coordy;
 			target_w = m_DynamicImage[k].width;
 			target_h = m_DynamicImage[k].height;
-			break;
+
+			bitBltWholeScreen();
+			if (target_x == 0 && target_y == 0)
+			{
+				pair <int, int> iconlocation = findIcon(target_image);
+
+				snprintf(m_debugMsg, 1024, "compareImage %d %d", iconlocation.first, iconlocation.second);
+				dbgMsg(m_IsDebug_Platform, debug_Detail);
+
+				copyPartialPic(imagePicCrop, target_w, target_h, (int)(iconlocation.first / m_widthPct), (int)(iconlocation.second / m_heightPct));
+			}
+			else
+			{
+				copyPartialPic(imagePicCrop, target_w, target_h, target_x, target_y); //
+			}
+
+			double MSD1 = cv::norm(target_image, imagePicCrop);
+			MSD1 = (MSD1 * MSD1 / target_image.total());
+
+			snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)", imageID.c_str(), MSD1, m_Image_Threshold);
+			dbgMsg(m_IsDebug_Platform, debug_Detail);
+
+			if (MSD1 < lastMSD)
+				lastMSD = MSD1;
 		}
 	}
 
-	bitBltWholeScreen();
-	if (target_x == 0 && target_y == 0)
-	{
-		pair <int, int> iconlocation = findIcon(target_image);
-
-		snprintf(m_debugMsg, 1024, "compareImage %d %d", iconlocation.first, iconlocation.second);
-		dbgMsg(m_IsDebug_Platform, debug_Detail);
-
-		copyPartialPic(imagePicCrop, target_w, target_h, (int) (iconlocation.first / m_widthPct), (int) (iconlocation.second / m_heightPct));
-	}
-	else 
-	{
-		copyPartialPic(imagePicCrop, target_w, target_h, target_x, target_y); //
-	}
-
-	MSD1 = cv::norm(target_image, imagePicCrop);
-	MSD1 = (MSD1 * MSD1 / target_image.total());
-	
-	snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)", imageID.c_str(), MSD1, m_Image_Threshold);
-	dbgMsg(m_IsDebug_Platform, debug_Detail);
-
-	return (MSD1 <= m_Image_Threshold); // something wrong with trap set up window
+	return (lastMSD < m_Image_Threshold);
 }
 
-pair<bool, pair<int, int>> CAEBot::findClickInRegion(string findString, int cols, int rows, int x, int y)
+pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y)
 {
 	int target_w, target_h, target_x, target_y;
 	Mat target_image, imagePicCrop;
 	pair<bool, pair<int, int>> returnicon;
+	double lastMSD = m_Image_Threshold;
 
 	returnicon.first = false;
+	returnicon.second.first = m_width;
+	returnicon.second.second = m_height;
 
 	for (auto k = 0; k < m_DynamicImage.size(); k++)
 	{
-		if (findString.compare(m_DynamicImage[k].id) == 0)
+		if (imageID.compare(m_DynamicImage[k].id) == 0)
 		{
 			target_image = m_DynamicImage[k].image;
 			target_x = m_DynamicImage[k].coordx;
 			target_y = m_DynamicImage[k].coordy;
 			target_w = m_DynamicImage[k].width;
 			target_h = m_DynamicImage[k].height;
-			returnicon.first = true;
-			break;
+
+			pair<int, int> iconLoc;
+			if (cols == 0 || rows == 0)
+				iconLoc = findIcon(target_image);
+			else
+				iconLoc = findIconInRegion(target_image, cols, rows, x, y);
+
+			copyPartialPic(imagePicCrop, target_w, target_h, (int)(iconLoc.first / m_widthPct), (int)(iconLoc.second / m_heightPct)); //
+
+			double MSD1 = cv::norm(target_image, imagePicCrop);
+			MSD1 = (MSD1 * MSD1 / target_image.total());
+
+			if (MSD1 < lastMSD)
+			{
+				snprintf(m_debugMsg, 1024, "findClick found %d %d", iconLoc.first, iconLoc.second);
+				dbgMsg(m_IsDebug_Platform, debug_Detail);
+
+				lastMSD = MSD1;
+				returnicon.first = true;
+				returnicon.second.first = iconLoc.first + (int)round(target_w * m_widthPct / 2);
+				returnicon.second.second = iconLoc.second + (int)round(target_h * m_heightPct / 2);
+			}
 		}
 	}
-
-	if (!returnicon.first)
-	{
-		returnicon.second = { m_width + 1, m_height + 1 };
-		return returnicon;
-	}
-
-	pair<int, int> iconLoc;
-	if (cols == 0 || rows == 0)
-		iconLoc = findIcon(target_image);
-	else
-		iconLoc = findIconInRegion(target_image, cols, rows, x, y);
-
-	returnicon.second.first = iconLoc.first + (int)round(target_w * m_widthPct / 2);
-	returnicon.second.second = iconLoc.second + (int)round(target_h * m_heightPct / 2);
-
-	copyPartialPic(imagePicCrop, target_w, target_h, (int) (iconLoc.first / m_widthPct), (int) (iconLoc.second / m_heightPct)); //
-
-	double MSD1 = cv::norm(target_image, imagePicCrop);
-	MSD1 = (MSD1 * MSD1 / target_image.total());
-
-	returnicon.first = (MSD1 < m_Image_Threshold);
-
-	snprintf(m_debugMsg, 1024, "findClickInRegion %x %d %d", returnicon.first, returnicon.second.first, returnicon.second.second);
-	dbgMsg(m_IsDebug_Platform, debug_Brief);
 
 	return returnicon;
 }
@@ -452,7 +465,7 @@ void CAEBot::leftClick(int x, int y, bool changeLoc)
 
 void CAEBot::leftClick(int x, int y, int sTime, bool changeLoc)
 {
-	// will change coordination system to the current one, except for those findClickInRegion
+	// will change coordination system to the current one, except for those findClick
 	if (changeLoc)
 	{
 		x = (int)round(x * m_widthPct);
@@ -900,7 +913,6 @@ Status_Code CAEBot::engageMobFightNow()
 	int num_loop = (int)m_skillsMobSet.size();
 	int iRun = 0;
 	vector<int> lastSkillsRow = { 0, 0, 0, 0 };
-	bool isThisPSlime = false;
 
 	if (m_IsPrint && m_IsDebug_Fighting) captureScreenNow("Mob");
 
@@ -913,44 +925,6 @@ Status_Code CAEBot::engageMobFightNow()
 	if (m_Fight_GrindingCount)
 	{
 		m_currentGrindingCounter++;
-	}
-
-	if (m_botMode == grindingLOMSlimeMode)
-	{
-		//check 578, 403, 150x150
-
-		double MSD;
-		//Check for battle
-		//For 3 seconds, read the screen and compare it to the current monster pics. If a cl1ose enough similarity is found, assume its a regular battle and proceed to auto attack
-		//If not, assume its a horror and exit
-		Mat partialHorrorPic;
-		auto horrorStartTime = chrono::high_resolution_clock::now();
-		int lowestMSD = 999999999;
-		while (std::chrono::duration_cast<std::chrono::seconds>(chrono::high_resolution_clock::now() - horrorStartTime).count() < 3)
-		{
-			bitBltWholeScreen();
-			copyPartialPic(partialHorrorPic, 150, 150, 578, 403);
-
-			for (auto i = 0; i < m_MonsterVec_LOMPSlime.size(); i++)
-			{
-				MSD = cv::norm(m_MonsterVec_LOMPSlime[i], partialHorrorPic);
-				MSD = MSD * MSD / m_MonsterVec_LOMPSlime[i].total();
-
-				if (MSD < lowestMSD)
-				{
-					lowestMSD = (int)MSD;
-				}
-				Sleep(10);
-			}
-		}
-
-		if (lowestMSD < m_Image_Threshold) //It should be a plantium slime
-		{
-			isThisPSlime = true;
-
-			snprintf(m_debugMsg, 1024, "Plantium Slime encountered at [%s]", m_currentLocation.c_str());
-			dbgMsg(m_IsDebug_LOM, debug_Brief);
-		}
 	}
 
 	do
@@ -1097,10 +1071,12 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 		}
 
 		// check whether AF bar is full
-		copyPartialPic(imagePicCrop, 730, 50, 880, 30); // AF bar 880, 30, 730, 50.  AF bar 860, 10, 770, 90
+		imageInfo afBarFullPic = retrieveImage("AFBarFull");
+		copyPartialPic(imagePicCrop, afBarFullPic.width, afBarFullPic.height, afBarFullPic.coordx, afBarFullPic.coordy); // AF bar 880, 30, 730, 50.  AF bar 860, 10, 770, 90
+
 		double MSD1;
-		MSD1 = cv::norm(afBarFullPic, imagePicCrop);
-		MSD1 = MSD1 * MSD1 / afBarFullPic.total();
+		MSD1 = cv::norm(afBarFullPic.image, imagePicCrop);
+		MSD1 = MSD1 * MSD1 / afBarFullPic.image.total();
 
 		if (MSD1 < m_Fight_AFFullThreshold || isAFon)
 		{
@@ -1115,9 +1091,11 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 				leftClick(m_Button_Skills[m_Skill_for_AF].xyPosition, m_Fight_AFInterval);
 
 				bitBltWholeScreen();
-				copyPartialPic(imagePicCrop, 730, 50, 880, 30); // AF bar 880, 30, 730, 50.  AF bar 860, 10, 770, 90
-				MSD2 = cv::norm(afBarEmptyPic, imagePicCrop);
-				MSD2 = MSD2 * MSD2 / afBarEmptyPic.total();
+				imageInfo afBarEmptyPic = retrieveImage("AFBarEmpty");
+				copyPartialPic(imagePicCrop, afBarEmptyPic.width, afBarEmptyPic.height, afBarEmptyPic.coordx, afBarEmptyPic.coordy); // AF bar 880, 30, 730, 50.  AF bar 860, 10, 770, 90
+
+				MSD2 = cv::norm(afBarEmptyPic.image, imagePicCrop);
+				MSD2 = MSD2 * MSD2 / afBarEmptyPic.image.total();
 			} while (MSD2 > 400);
 
 			snprintf(m_debugMsg, 1024, "AF Done");
@@ -1359,35 +1337,26 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 
 						if (inBattle()) // double check whether it is a battle
 						{
-							if (m_hasHorror) //Its possibly a horror or lakelord, so need to check to make sure before trying to auto it down
+							if (m_Fishing_HasHorror) //Its possibly a horror or lakelord, so need to check to make sure before trying to auto it down
 							{
 								bool isThisHorror = false;
-								if (m_currentMonsterVec != NULL)
+								bool isThisMob = false;
+								if (m_Fishing_HasMob)
 								{
 									//For 3 seconds, read the screen and compare it to the current monster pics. If a cl1ose enough similarity is found, assume its a regular battle and proceed to auto attack
 									//If not, assume its a horror and exit
-									Mat partialHorrorPic;
 									auto horrorStartTime = chrono::high_resolution_clock::now();
-									int lowestMSD = 999999999;
 									while (std::chrono::duration_cast<std::chrono::seconds>(chrono::high_resolution_clock::now() - horrorStartTime).count() < 3)
 									{
-										bitBltWholeScreen();
-										copyPartialPic(partialHorrorPic, 140, 140, 420, 380);
-										for (int i = 0; i < m_currentMonsterVec->size(); ++i)
+										if (compareImage("FishingMob"))
 										{
-											MSD = cv::norm((*m_currentMonsterVec)[i], partialHorrorPic);
-											MSD = MSD * MSD / (*m_currentMonsterVec)[i].total();
-
-											if (MSD < lowestMSD)
-											{
-												lowestMSD = (int)MSD;
-												monsterIndex = i;
-											}
+											isThisMob = true;
+											break;
 										}
 										Sleep(10);
 									}
 
-									if (lowestMSD > m_Image_Threshold) //If its not a monster, it must be a horror
+									if (!isThisMob) //If its not a monster, it must be a horror
 										isThisHorror = true;
 								}
 								else
@@ -1723,7 +1692,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 			}
 		}
 		else if (curType.compare("Find") == 0) {
-			pair<bool, pair <int, int>> findclickres = findClickInRegion(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 		}
 		else if (curType.compare("Fight") == 0) {
@@ -1952,62 +1921,62 @@ Status_Code CAEBot::fishFunction()
 	if (m_currentLocation.compare("Kira Beach") == 0)
 	{
 		//no monster
-		m_resValue = fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Fishing_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Baruoki") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Baruoki;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(711, 366);
 
-		m_resValue = fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Fishing_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Naaru Uplands") == 0)
 	{
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(775, 450);
 
-		m_resValue = fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Fishing_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Acteul") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Acteul;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(1029, 367);
 
-		m_resValue = fish(m_Locs_Acteul);
+		m_resValue = fish(m_Fishing_Locs_Acteul);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Elzion Airport") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Elzion;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(1004, 448);
 
-		m_resValue = fish(m_Locs_Elzion);
+		m_resValue = fish(m_Fishing_Locs_Elzion);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Zol Plains") == 0)
 	{
 		//no monster
 		//m_currentFishIconLoc = make_pair(935, 455);
 
-		m_resValue = fish(m_Locs_ZolPlains);
+		m_resValue = fish(m_Fishing_Locs_ZolPlains);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Lake Tillian") == 0)
@@ -2015,28 +1984,28 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(741, 448);
 
-		m_resValue = fish(m_Locs_Acteul);
+		m_resValue = fish(m_Fishing_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Vasu Mountains") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Vasu;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(727, 442);
 
-		m_resValue = fish(m_Locs_Vasu);
+		m_resValue = fish(m_Fishing_Locs_Vasu);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Karek Swampland") == 0)
 	{
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(623, 448);
 
-		m_resValue = fish(m_Locs_Acteul);
+		m_resValue = fish(m_Fishing_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Moonlight Forest") == 0)
@@ -2044,7 +2013,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(435, 360);
 
-		m_resValue = fish(m_Locs_Moonlight);
+		m_resValue = fish(m_Fishing_Locs_Moonlight);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Ancient Battlefield") == 0)
@@ -2052,7 +2021,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(1300, 455);
 
-		m_resValue = fish(m_Locs_AncientBattlefield);
+		m_resValue = fish(m_Fishing_Locs_AncientBattlefield);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Snake Neck Igoma") == 0)
@@ -2060,7 +2029,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_currentFishIconLoc = make_pair(685, 450);
 
-		m_resValue = fish(m_Locs_Igoma);
+		m_resValue = fish(m_Fishing_Locs_Igoma);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Rinde") == 0)
@@ -2068,58 +2037,58 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(970, 368);
 
-		m_resValue = fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Fishing_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Serena Coast") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Serena;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(796, 448);
 
-		m_resValue = fish(m_Locs_Acteul);
+		m_resValue = fish(m_Fishing_Locs_Acteul);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Rucyana Sands") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_Rucyana;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(744, 411);
 
-		m_resValue = fish(m_Locs_RucyanaSands);
+		m_resValue = fish(m_Fishing_Locs_RucyanaSands);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Last Island") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_LastIsland;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
-		m_resValue = fish(m_Locs_KiraBeach);
+		m_resValue = fish(m_Fishing_Locs_KiraBeach);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Nilva") == 0)
 	{
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(1068, 400);
 
-		m_resValue = fish(m_Locs_Elzion);
+		m_resValue = fish(m_Fishing_Locs_Elzion);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Man-Eating Swamp") == 0)
 	{
 		//has monster, no horror
-		m_resValue = fish(m_Locs_Acteul);
+		m_resValue = fish(m_Fishing_Locs_Acteul);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Charol Plains") == 0)
@@ -2127,28 +2096,28 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_currentFishIconLoc = make_pair(840, 456);
 
-		m_resValue = fish(m_Locs_Baruoki);
+		m_resValue = fish(m_Fishing_Locs_Baruoki);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dimension Rift") == 0)
 	{
-		m_hasHorror = true;
-		m_currentMonsterVec = &m_MonsterVec_DimensionRift;
+		m_Fishing_HasHorror = true;
+		m_Fishing_HasMob = true;
 
 		m_currentFishIconLoc = make_pair(408, 345);
 
-		m_resValue = fish(m_Locs_DimensionRift);
+		m_resValue = fish(m_Fishing_Locs_DimensionRift);
 		leftClick(m_Button_Leave);
 
-		m_hasHorror = false;
-		m_currentMonsterVec = NULL;
+		m_Fishing_HasHorror = false;
+		m_Fishing_HasMob = false;
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Outer Wall Plum") == 0)
 	{
 		//no monster
 		//m_currentFishIconLoc = make_pair(450, 400);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Plum") == 0)
@@ -2156,7 +2125,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(450, 400);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Outer Wall Bamboo") == 0)
@@ -2164,7 +2133,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(1240, 410);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Bamboo") == 0)
@@ -2172,7 +2141,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(1240, 410);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Inner Wall") == 0)
@@ -2180,7 +2149,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(751, 407);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Inner Wall") == 0)
@@ -2188,7 +2157,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(603, 408);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace - Outer Wall Pine") == 0)
@@ -2196,7 +2165,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(630, 408);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_currentLocation.compare("Dragon Palace Past - Outer Wall Pine") == 0)
@@ -2204,7 +2173,7 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_currentFishIconLoc = make_pair(630, 405);
 
-		m_resValue = fish(m_Locs_DragonPalace);
+		m_resValue = fish(m_Fishing_Locs_DragonPalace);
 		leftClick(m_Button_Leave);
 	}
 
@@ -2216,12 +2185,12 @@ void CAEBot::fishIconClickFunction()
 	//In Man Eating Swamp, any battle shifts your position, so the fish icon location must be found again
 	if (m_currentLocation.compare("Kira Beach") == 0 || m_currentLocation.compare("Last Island") == 0)
 	{
-		pair<bool, pair<int, int>> findclickres = findClickInRegion("FishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+		pair<bool, pair<int, int>> findclickres = findClick("FishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 	else if (m_currentLocation.compare("Man-Eating Swamp") == 0)
 	{
-		pair<bool, pair<int, int>> findclickres = findClickInRegion("SwampFishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+		pair<bool, pair<int, int>> findclickres = findClick("SwampFishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 	else
@@ -2243,7 +2212,7 @@ Status_Code CAEBot::harpoonFunction()
 
 	pair<bool, pair <int, int>> findclickres;
 	
-	findclickres = findClickInRegion("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
+	findclickres = findClick("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
 	harpoonfish = findclickres.second;
 
 	leftClick(harpoonfish.first, harpoonfish.second, m_Action_Interval, false);
@@ -2293,7 +2262,7 @@ Status_Code CAEBot::harpoonFunction()
 			return status_BreakRun;
 		}
 
-		findclickres = findClickInRegion("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
+		findclickres = findClick("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
 		harpoonfish = findclickres.second;
 
 		//snprintf(m_debugMsg, 1024, "Harpoon fish attempt [%d] %d %d....", counter + 1, harpoonfish.first, harpoonfish.second);
@@ -2350,7 +2319,7 @@ Status_Code CAEBot::harpoonHorror()
 	pair<int, int> harpoonhorror;
 	pair<bool, pair <int, int>> findclickres;
 
-	findclickres = findClickInRegion("HarpoonHorror", 1545, 500, 100, 50);
+	findclickres = findClick("HarpoonHorror", 1545, 500, 100, 50);
 	harpoonhorror = findclickres.second;
 
 	if (!(harpoonhorror.first >= 1390 * m_widthPct && harpoonhorror.second <= 235 * m_heightPct))
@@ -2411,12 +2380,12 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	pair<bool, pair <int, int>> findclickres;
 	bool findtraplarge;
 
-	findclickres = findClickInRegion("HarpoonTrap", (int)M_WIDTH, (int) 440, 0, (int) 160);
+	findclickres = findClick("HarpoonTrap", (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findclicktrap = findclickres.second;
 
 	leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
 
-	findclickres = findClickInRegion("HarpoonTrapLarge", (int)M_WIDTH, (int) 440, 0, (int) 160);
+	findclickres = findClick("HarpoonTrapLarge", (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findtraplarge = findclickres.first;
 	findclicktraplarge = findclickres.second;
 
@@ -2687,9 +2656,11 @@ Status_Code CAEBot::stateSilverHitBell(Bot_Mode silverHitBellstate)
 			Sleep(1);
 			bitBltWholeScreen();
 
-			copyPartialPic(bellPicCrop, 160, 80, 1095, 323);
-			MSD1 = (int)cv::norm(hitBellPic, bellPicCrop);
-			MSD1 = MSD1 * MSD1 / (int)hitBellPic.total();
+			imageInfo hitBellPic = retrieveImage("Bell");
+			copyPartialPic(bellPicCrop, hitBellPic.width, hitBellPic.height, hitBellPic.coordx, hitBellPic.coordy);
+
+			MSD1 = (int)cv::norm(hitBellPic.image, bellPicCrop);
+			MSD1 = MSD1 * MSD1 / (int)hitBellPic.image.total();
 
 			if (MSD1 < m_Image_Threshold)
 			{
@@ -2758,9 +2729,12 @@ Status_Code CAEBot::stateJumpRopeRatle()
 		bitBltWholeScreen();
 
 		if (check) {
-			copyPartialPic(jmpRopePicCrop, 21, 109, 710, 575);
-			MSD1 = (int) cv::norm(jmpRopePic2, jmpRopePicCrop);
-			MSD1 = MSD1 * MSD1 / (int) jmpRopePic2.total();
+
+			imageInfo jmpRopePic2 = retrieveImage("jmpRopePic2");
+			copyPartialPic(jmpRopePicCrop, jmpRopePic2.width, jmpRopePic2.height, jmpRopePic2.coordx, jmpRopePic2.coordy);
+
+			MSD1 = (int) cv::norm(jmpRopePic2.image, jmpRopePicCrop);
+			MSD1 = MSD1 * MSD1 / (int) jmpRopePic2.image.total();
 
 			if (MSD1 > 1000)
 			{
@@ -2776,9 +2750,11 @@ Status_Code CAEBot::stateJumpRopeRatle()
 		}
 		else
 		{
-			copyPartialPic(jmpRopePicCrop, 25, 79, 745, 305);
-			MSD1 = (int) cv::norm(jmpRopePic1, jmpRopePicCrop);
-			MSD1 = MSD1 * MSD1 / (int) jmpRopePic1.total();
+			imageInfo jmpRopePic1 = retrieveImage("jmpRopePic1");
+			copyPartialPic(jmpRopePicCrop, jmpRopePic1.width, jmpRopePic1.height, jmpRopePic1.coordx, jmpRopePic1.coordy);
+
+			MSD1 = (int) cv::norm(jmpRopePic1.image, jmpRopePicCrop);
+			MSD1 = MSD1 * MSD1 / (int) jmpRopePic1.image.total();
 
 			if (MSD1 > 1000)
 			{
@@ -2816,9 +2792,11 @@ Status_Code CAEBot::stateJumpRopeBaruoki()
 		bitBltWholeScreen();
 
 		if (check) {
-			copyPartialPic(jmpRopePicCrop, 12, 108, 761, 585);
-			MSD1 = (int) cv::norm(jmpRopePic4, jmpRopePicCrop);
-			MSD1 = MSD1 * MSD1 / (int) jmpRopePic4.total();
+			imageInfo jmpRopePic4 = retrieveImage("jmpRopePic4");
+			copyPartialPic(jmpRopePicCrop, jmpRopePic4.width, jmpRopePic4.height, jmpRopePic4.coordx, jmpRopePic4.coordy);
+
+			MSD1 = (int) cv::norm(jmpRopePic4.image, jmpRopePicCrop);
+			MSD1 = MSD1 * MSD1 / (int) jmpRopePic4.image.total();
 
 			if (MSD1 > 1000)
 			{
@@ -2834,9 +2812,11 @@ Status_Code CAEBot::stateJumpRopeBaruoki()
 		}
 		else
 		{
-			copyPartialPic(jmpRopePicCrop, 44, 20, 958, 324);
-			MSD1 = (int) cv::norm(jmpRopePic3, jmpRopePicCrop);
-			MSD1 = MSD1 * MSD1 / (int) jmpRopePic3.total();
+			imageInfo jmpRopePic3 = retrieveImage("jmpRopePic3");
+			copyPartialPic(jmpRopePicCrop, jmpRopePic3.width, jmpRopePic3.height, jmpRopePic3.coordx, jmpRopePic3.coordy);
+
+			MSD1 = (int) cv::norm(jmpRopePic3.image, jmpRopePicCrop);
+			MSD1 = MSD1 * MSD1 / (int) jmpRopePic3.image.total();
 
 			if (MSD1 > 1000)
 			{
@@ -2953,7 +2933,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 			leftClick(m_Button_X);
 
 
-			pair<bool, pair<int, int>> findclickres = findClickInRegion("ExclamationGrasta", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+			pair<bool, pair<int, int>> findclickres = findClick("ExclamationGrasta", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 			leftClick(m_Grasta_Button[Grasta_Action_Separate].xyPosition);
@@ -4272,58 +4252,14 @@ Status_Code CAEBot::setup()
 	m_heightPct = (double)(m_height / M_HEIGHT);
 	m_widthPct = (double)(m_width / M_WIDTH);
 
-	afBarEmptyPic = imread("images\\AEBarEmpty.png", IMREAD_UNCHANGED);
-	afBarFullPic = imread("images\\AEBarFull.png", IMREAD_UNCHANGED);
-	hitBellPic = imread("images\\Bell.png", IMREAD_UNCHANGED);
-	jmpRopePic1 = imread("images\\jmpRopePic1.png", IMREAD_UNCHANGED);
-	jmpRopePic2 = imread("images\\jmpRopePic2.png", IMREAD_UNCHANGED);
-	jmpRopePic3 = imread("images\\jmpRopePic3.png", IMREAD_UNCHANGED);
-	jmpRopePic4 = imread("images\\jmpRopePic4.png", IMREAD_UNCHANGED);
-
 	for (auto i = 0; i < m_DynamicImage.size(); i++)
 	{
 		string dynamicimagename = string("images\\") + m_DynamicImage[i].name;
 		m_DynamicImage[i].image = imread(dynamicimagename, IMREAD_UNCHANGED);
 	}
 
-	m_MonsterVec_Baruoki.push_back(imread("images\\monster_baruoki.png", IMREAD_UNCHANGED));
-	m_MonsterVec_Acteul.push_back(imread("images\\monster_acteul.png", IMREAD_UNCHANGED));
-	m_MonsterVec_Vasu.push_back(imread("images\\monster_vasu.png", IMREAD_UNCHANGED));
-	m_MonsterVec_Serena.push_back(imread("images\\monster_serena.png", IMREAD_UNCHANGED));
-	m_MonsterVec_Rucyana.push_back(imread("images\\monster_rucyana.png", IMREAD_UNCHANGED));
-	m_MonsterVec_Elzion.push_back(imread("images\\monster_elzion.png", IMREAD_UNCHANGED));
-	m_MonsterVec_LastIsland.push_back(imread("images\\monster_lastisland.png", IMREAD_UNCHANGED));
-	m_MonsterVec_DimensionRift.push_back(imread("images\\monster_dimensionrift1.png", IMREAD_UNCHANGED));
-	m_MonsterVec_DimensionRift.push_back(imread("images\\monster_dimensionrift2.png", IMREAD_UNCHANGED));
-	m_MonsterVec_DimensionRift.push_back(imread("images\\monster_dimensionrift3.png", IMREAD_UNCHANGED));
-	m_MonsterVec_LOMPSlime.push_back(imread("images\\monster_lompslime1.png", IMREAD_UNCHANGED));
-	m_MonsterVec_LOMPSlime.push_back(imread("images\\monster_lompslime2.png", IMREAD_UNCHANGED));
-
 	if (m_heightPct != 1.0 || m_widthPct != 1.0)
 	{
-		resize(afBarEmptyPic, afBarEmptyPic, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-
-		resize(afBarFullPic, afBarFullPic, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(hitBellPic, hitBellPic, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(jmpRopePic1, jmpRopePic1, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(jmpRopePic2, jmpRopePic2, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(jmpRopePic3, jmpRopePic3, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(jmpRopePic4, jmpRopePic4, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-
-		resize(m_MonsterVec_Baruoki[0], m_MonsterVec_Baruoki[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_Acteul[0], m_MonsterVec_Acteul[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_Vasu[0], m_MonsterVec_Vasu[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_Serena[0], m_MonsterVec_Serena[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_Rucyana[0], m_MonsterVec_Rucyana[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_Elzion[0], m_MonsterVec_Elzion[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_LastIsland[0], m_MonsterVec_LastIsland[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_DimensionRift[0], m_MonsterVec_DimensionRift[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_DimensionRift[1], m_MonsterVec_DimensionRift[1], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_DimensionRift[2], m_MonsterVec_DimensionRift[2], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-
-		resize(m_MonsterVec_LOMPSlime[0], m_MonsterVec_LOMPSlime[0], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-		resize(m_MonsterVec_LOMPSlime[1], m_MonsterVec_LOMPSlime[1], Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
-
 		for (auto i = 0; i < m_DynamicImage.size(); i++)
 		{
 			resize(m_DynamicImage[i].image, m_DynamicImage[i].image, Size(), m_widthPct, m_heightPct, m_heightPct >= 1.0 ? INTER_CUBIC : INTER_AREA);
