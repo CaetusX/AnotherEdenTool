@@ -410,18 +410,13 @@ bool CAEBot::compareImage(string imageID)
 	return (lastMSD < m_Image_Threshold);
 }
 
-pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y, bool needmatching)
+pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y)
 {
 	int target_w, target_h, target_x, target_y;
 	Mat target_image, imagePicCrop;
 	pair<bool, pair<int, int>> returnicon;
 	double lastMSD = (int) 99999999999;
 		
-	if (needmatching)
-	{
-		lastMSD = m_Image_Threshold;
-	}
-
 	returnicon.first = false;
 	returnicon.second.first = m_width;
 	returnicon.second.second = m_height;
@@ -447,13 +442,13 @@ pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows,
 			double MSD1 = cv::norm(target_image, imagePicCrop);
 			MSD1 = (MSD1 * MSD1 / target_image.total());
 
-			snprintf(m_debugMsg, 1024, "findClick %s [%d %d] %f (%d)", imageID.c_str(), iconLoc.first, iconLoc.second, MSD1, m_Image_Threshold);
-			dbgMsg(m_IsDebug_Platform, debug_Detail);
+			snprintf(m_debugMsg, 1024, "findclick %s [%d %d] %f (%d)", imageID.c_str(), iconLoc.first, iconLoc.second, MSD1, m_Image_Threshold);
+			dbgMsg(m_IsDebug_Platform, debug_Brief);
 
 			if (MSD1 < lastMSD)
 			{
 				lastMSD = MSD1;
-				returnicon.first = true;
+				returnicon.first = MSD1 < m_Image_Threshold;
 				returnicon.second.first = iconLoc.first + (int)round(target_w * m_widthPct / 2);
 				returnicon.second.second = iconLoc.second + (int)round(target_h * m_heightPct / 2);
 			}
@@ -1382,13 +1377,13 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 										if (m_resValue != status_NoError) // failed
 										{
 											snprintf(m_debugMsg, 1024, "Fight Horror or Lake Lord failed!");
-											dbgMsg(m_IsDebug_Fishing, debug_Detail);
+											dbgMsg(m_IsDebug_Fishing, debug_Summary);
 											return status_FightFail;
 										}
 										if (horrorIndex >= m_Fight_HorrorCount) // limit the number of horrors / lake lords to fight
 										{
 											snprintf(m_debugMsg, 1024, "Leaving [%s] (%d/%d) catched - Horror count reached", m_currentLocation.c_str(), horrorIndex, catchIndex);
-											dbgMsg(m_IsDebug_Fishing, debug_Detail);
+											dbgMsg(m_IsDebug_Fishing, debug_Summary);
 											return status_FishingHorrorMax;
 										}
 
@@ -1697,7 +1692,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 			}
 		}
 		else if (curType.compare("Find") == 0) {
-			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0, false);
+			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 		}
 		else if (curType.compare("Fight") == 0) {
@@ -2409,7 +2404,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 		if (txt.find("before") != string::npos || txt.find("than") != string::npos || txt.find("minute") != string::npos || txt.find("The") != string::npos)
 		{
 			snprintf(m_debugMsg, 1024, "Trap [%s] \"%s\"", trapRef.c_str(), txt.c_str());
-			dbgMsg(m_IsDebug_Fishing, debug_Detail);
+			dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 			leftClick(m_Button_PassThrough, m_Action_Interval);
 			for (auto i = 0; i < 3; i++)
@@ -2434,7 +2429,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 				if (timegap > m_Time_Out) // return if timeout
 				{
 					snprintf(m_debugMsg, 1024, "Time out for Trap [%s]", trapRef.c_str());
-					dbgMsg(m_IsDebug_Fishing, debug_Detail);
+					dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 					if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonTrapFunction timeout result");
 
@@ -2480,7 +2475,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	if (!imageresult) // something wrong with trap set up window
 	{
 		snprintf(m_debugMsg, 1024, "Trap [%s] set up window is wrong", trapRef.c_str());
-		dbgMsg(m_IsDebug_Fishing, debug_Detail);
+		dbgMsg(m_IsDebug_Fishing, debug_Brief);
 
 		if (m_IsPrint && m_IsDebug_Fishing) captureScreenNow("HarpoonSetupTrap");
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
