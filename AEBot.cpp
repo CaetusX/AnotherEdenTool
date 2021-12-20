@@ -410,12 +410,17 @@ bool CAEBot::compareImage(string imageID)
 	return (lastMSD < m_Image_Threshold);
 }
 
-pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y)
+pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y, bool needmatching)
 {
 	int target_w, target_h, target_x, target_y;
 	Mat target_image, imagePicCrop;
 	pair<bool, pair<int, int>> returnicon;
-	double lastMSD = m_Image_Threshold;
+	double lastMSD = (int) 99999999999;
+		
+	if (needmatching)
+	{
+		lastMSD = m_Image_Threshold;
+	}
 
 	returnicon.first = false;
 	returnicon.second.first = m_width;
@@ -442,11 +447,11 @@ pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows,
 			double MSD1 = cv::norm(target_image, imagePicCrop);
 			MSD1 = (MSD1 * MSD1 / target_image.total());
 
+			snprintf(m_debugMsg, 1024, "findClick %s [%d %d] %f (%d)", imageID.c_str(), iconLoc.first, iconLoc.second, MSD1, m_Image_Threshold);
+			dbgMsg(m_IsDebug_Platform, debug_Detail);
+
 			if (MSD1 < lastMSD)
 			{
-				snprintf(m_debugMsg, 1024, "findClick found %d %d", iconLoc.first, iconLoc.second);
-				dbgMsg(m_IsDebug_Platform, debug_Detail);
-
 				lastMSD = MSD1;
 				returnicon.first = true;
 				returnicon.second.first = iconLoc.first + (int)round(target_w * m_widthPct / 2);
@@ -1692,7 +1697,7 @@ Status_Code CAEBot::goToTargetLocation(vector<pathInfo> pathInfoList)
 			}
 		}
 		else if (curType.compare("Find") == 0) {
-			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0, false);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 		}
 		else if (curType.compare("Fight") == 0) {
@@ -2592,7 +2597,7 @@ Status_Code CAEBot::stateSilverHitBell(Bot_Mode silverHitBellstate)
 {
 	Mat bellPicCrop;
 	int MSD1;
-	int lowMSD = (int)99999999999;
+	int lowMSD = (int) 99999999999;
 
 	while (1)
 	{
