@@ -39,7 +39,7 @@ enum Status_Code {
 };
 enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
 
-enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_Alphanumeric };
+enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_AlphaNumeric };
 
 enum Debug_Level { debug_None = 0, debug_Key, debug_Summary, debug_Brief, debug_Detail };
 
@@ -316,6 +316,7 @@ private:
 	void copyPartialPic(Mat& partialPic, int cols, int rows, int x, int y);
 	string runOCR(Mat& pic);
 	string getText(Mat& pic);
+	string getTextNumber(Mat& pic);
 	int getNumber(Mat& pic);
 	string ocrPicture(OCR_Type ocrtype, int columns, int rows, int x, int y);
 

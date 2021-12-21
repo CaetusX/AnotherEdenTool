@@ -271,6 +271,12 @@ string CAEBot::getText(Mat& pic)
 	return runOCR(pic);
 }
 
+string CAEBot::getTextNumber(Mat& pic)
+{
+	m_ocr->setWhiteList(ocrAlphanumericSet);
+	return runOCR(pic);
+}
+
 int CAEBot::getNumber(Mat& pic)
 {
 	m_ocr->setWhiteList(ocrNumericSet);
@@ -299,9 +305,9 @@ string CAEBot::ocrPicture(OCR_Type ocrtype, int columns, int rows, int x, int y)
 			return getText(partialPic);
 		case ocr_Numeric:
 			return to_string(getNumber(partialPic));
-		case ocr_Alphanumeric:
+		case ocr_AlphaNumeric:
 		default:
-			return getText(partialPic);
+			return getTextNumber(partialPic);
 	}
 }
 
@@ -2232,7 +2238,7 @@ Status_Code CAEBot::harpoonFunction()
 		}
 
 		// it is possible the fish escapes
-		txt = ocrPicture(ocr_Alphanumeric, 1100, 80, 330, 75);
+		txt = ocrPicture(ocr_Alphabetic, 1100, 80, 330, 75);
 		// try to search the harpoon
 		if (txt.find("harpoon") != string::npos || txt.find("the") != string::npos)
 		{
@@ -2244,7 +2250,7 @@ Status_Code CAEBot::harpoonFunction()
 		}
 
 		// it is possible the fish escapes
-		txt = ocrPicture(ocr_Alphanumeric, 1100, 80, 330, 75);
+		txt = ocrPicture(ocr_Alphabetic, 1100, 80, 330, 75);
 		// try to search the harpoon
 		// "It nimbly dodged the harpoon!" or "It was too strong and the harpoon was flung away!"
 		if (txt.find("harpoon") != string::npos || txt.find("the") != string::npos)
@@ -2398,7 +2404,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	}
 	else 
 	{
-		string txt = ocrPicture(ocr_Alphabetic, 900, 65, 415, 48);
+		string txt = ocrPicture(ocr_AlphaNumeric, 900, 65, 415, 48);
 		// Less than xx minute(s) before the
 		// The alertness is rising. There's
 		if (txt.find("before") != string::npos || txt.find("than") != string::npos || txt.find("minute") != string::npos || txt.find("The") != string::npos)
@@ -2417,7 +2423,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 		{
 			startingtime = time(NULL);
 			// You've caught a total of xx fish
-			txt = ocrPicture(ocr_Alphabetic, 900, 127, 415, 48);
+			txt = ocrPicture(ocr_AlphaNumeric, 900, 127, 415, 48);
 			while (txt.find("total") == string::npos && txt.find("caught") == string::npos && txt.find("fish") == string::npos)
 			{
 				if (checkStatus(status_MajorError))
