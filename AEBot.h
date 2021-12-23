@@ -10,7 +10,7 @@ enum Bot_Mode { initialMode,
 	fishingAnglerMode, fishingHarpoonMode, 
 	ratleJumpRope, baruokiJumpRopeMode, 
 	silverHitBell30Mode, silverHitBell999Mode, 
-	seperateGrastaMode, 
+	separateGrastaMode, 
 	captureScreenMode, 
 	engageFightMode
 };
@@ -25,6 +25,7 @@ enum Status_Code {
 
 	status_Timeout				= 0x01000001,
 	status_BreakRun				= 0x01000002,
+	status_NoPathFound			= 0x01000003,
 
 	status_NotFight				= 0x00100001, 
 	status_FightFail			= 0x00100002,
@@ -41,7 +42,7 @@ enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
 
 enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_AlphaNumeric };
 
-enum Debug_Level { debug_None = 0, debug_Key, debug_Summary, debug_Brief, debug_Detail };
+enum Debug_Level { debug_None = 0, debug_Key, debug_Brief, debug_Detail };
 
 enum Bait_Type { 
 	bait_Fishing_Dango = 0, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, 
@@ -97,6 +98,7 @@ struct fishingSpot
 	vector<Bait_Type> baitsToUse;
 	int orderNumber;
 	string locationName;
+	string pondName;
 };
 
 struct pathInfo
@@ -116,7 +118,21 @@ struct locationInfo
 {
 	string locationName;
 	vector<pathInfo> pathStepsList;
-	bool skipRunning;
+};
+
+struct summaryInfo
+{
+	Bot_Mode botmode;
+	int loopNumber;
+	int locationNumber;
+	int runFishCaught;
+	int totalFishCaught;
+	int runMobFought;
+	int totalMobFought;
+	int runHorrorFought;
+	int totalHorrorFought;
+	time_t startingtime;
+	string currentLocation;
 };
 
 class CAEBot
@@ -131,6 +147,7 @@ public:
 	Debug_Level GetDebugLevel();
 	void SetDebugLevel(Debug_Level debuglevel);
 	string GetOutputMsg();
+	string GetSummaryMsg();
 	Bot_Mode GetMode();
 
 	void SetMode(Bot_Mode botMode);
@@ -146,15 +163,17 @@ public:
 
 private:
 
-	vector<emulatorInfo> m_emulatorList;
-	int m_emulatorIndex;
-	int m_emulatorNumber;
+	vector<emulatorInfo> m_EmulatorList;
+	int m_EmulatorIndex;
+	int m_EmulatorNumber;
 
-	Bot_Mode m_botMode;
+	summaryInfo m_SummaryInfo;
+
+	int m_CurrentGrindingCounter;
 
 	char m_debugMsg[1024];
-	string m_outputMsg;
 	char m_timeString[80];
+	string m_outputMsg;
 
 	Status_Code m_resValue;
 
@@ -179,18 +198,19 @@ private:
 	WORD m_xCenter, m_yCenter;
 
 	int m_Image_Threshold;
-	int m_loadTime;
+	int m_Load_Time;
+	int m_Time_Out;
 
 	Debug_Level m_Debug_Level;
 
-	bool m_IsDebug_Setting;
-	bool m_IsDebug_Platform;
-	bool m_IsDebug_Path;
-	bool m_IsDebug_Fighting;
-	bool m_IsDebug_Grinding;
-	bool m_IsDebug_Fishing;
-	bool m_IsDebug_Grasta;
-	bool m_IsDebug_LOM;
+	bool m_Debug_Type_Setting;
+	bool m_Debug_Type_Platform;
+	bool m_Debug_Type_Path;
+	bool m_Debug_Type_Fighting;
+	bool m_Debug_Type_Grinding;
+	bool m_Debug_Type_Fishing;
+	bool m_Debug_Type_Grasta;
+	bool m_Debug_Type_LOM;
 
 	bool m_IsPrint;
 
@@ -226,57 +246,6 @@ private:
 	vector<buttonInfo> m_Button_Skills;
 	vector<buttonInfo> m_Button_Baits;
 
-	int m_Skill_Normal;
-	int m_Skill_Exchange;
-	int m_Skill_Exchange_A;
-	int m_Skill_Exchange_B;
-	int m_Skill_AF;
-	int m_Skill_for_AF;
-	int m_CharacterFrontline;
-
-	int m_Action_Interval;
-	int m_Fast_Action_Interval;
-	int m_Smart_DownUp_Interval;
-	int m_Smart_DownUp_Threshold;
-
-	double m_Walk_Distance_Ratio;
-
-	int m_Fight_AFInterval;
-	int m_Fight_AFFullThreshold;
-
-	bool m_Fight_GrindingSkipSpaceTimeRift;
-	bool m_Fight_GrindingSkipRunning;
-	Direction_Info m_Fight_GrindingDirection;
-
-	int m_Fight_GrindingStep;
-	int m_Fight_GrindingCount;
-	int m_Time_Out;
-	int m_Fight_HorrorCount;
-
-	string m_Fight_LOMHeal;
-	string m_Fight_LOMSlimeA;
-	string m_Fight_LOMSlimeB;
-	string m_Fight_LOMSlimeRun;
-	string m_Fight_LOMReset;
-	int m_Fight_LOMTurn;
-
-	int m_currentGrindingCounter;
-
-	int m_Harpoon_Loop;
-	int m_Harpoon_Xinc;
-	int m_Harpoon_Yinc;
-	int m_Harpoon_Xmin;
-	int m_Harpoon_Xmax;
-	int m_Harpoon_Ymin;
-	int m_Harpoon_Ymax;
-	bool m_Harpoon_SkipVendor;
-	int m_Harpoon_Interval;
-
-	vector<vector<int>> m_skillsHorrorSet;
-	vector<vector<int>> m_skillsMobSet;
-
-	TCHAR m_CurrentPath[MAX_PATH];
-
 	pair<int, int> m_Button_Yes;
 	pair<int, int> m_Button_Leave;
 	pair<int, int> m_Button_X;
@@ -293,23 +262,71 @@ private:
 	pair<int, int> m_Button_Tree;
 	pair<int, int> m_Button_PassThrough;
 
+	vector<vector<int>> m_Skill_HorrorSet;
+	vector<vector<int>> m_Skill_MobSet;
+
+	int m_Skill_Normal;
+	int m_Skill_Exchange;
+	int m_Skill_Exchange_A;
+	int m_Skill_Exchange_B;
+	int m_Skill_AF;
+	int m_Skill_for_AF;
+	int m_CharacterFrontline;
+
+	int m_Action_Interval;
+	int m_Fast_Action_Interval;
+	int m_Smart_DownUp_Interval;
+	int m_Smart_DownUp_Threshold;
+
+	double m_Walk_Distance_Ratio;
+
+	int m_Grinding_AFInterval;
+	int m_Grinding_AFFullThreshold;
+
+	bool m_Grinding_SkipSpaceTimeRift;
+	bool m_Grinding_SkipRunning;
+	Direction_Info m_Grinding_Direction;
+
+	int m_Grinding_Step;
+	int m_Grinding_Count;
+	int m_Fishing_HorrorCount;
+	int m_Fishing_PondTeleport;
+
+	string m_Grinding_LOMHeal;
+	string m_Grinding_LOMSlimeA;
+	string m_Grinding_LOMSlimeB;
+	string m_Grinding_LOMSlimeRun;
+	string m_Grinding_LOMReset;
+	int m_Grinding_LOMTurn;
+
+	int m_Harpoon_Loop;
+	int m_Harpoon_Xinc;
+	int m_Harpoon_Yinc;
+	int m_Harpoon_Xmin;
+	int m_Harpoon_Xmax;
+	int m_Harpoon_Ymin;
+	int m_Harpoon_Ymax;
+	bool m_Harpoon_SkipVendor;
+	int m_Harpoon_Interval;
+
+	TCHAR m_CurrentPath[MAX_PATH];
+
 	vector<baitInfo> m_baitList; //Index is the type, the boolean is whether or not you have greater than 0 currently held, int is how many to buy for this run
-	vector<Bait_Type>* m_currentBaitsToUse;
+	vector<Bait_Type>* m_CurrentBaitsToUse;
 
 	vector<imageInfo> m_DynamicImage;
 
 	vector<locationInfo> m_LocationList;
-	vector<pair<string, int>> m_grindingSpots;
-	vector<fishingSpot> m_fishingSpots;
-	vector<pair<string, int>> m_harpoonSpots; //string is the harpoon location name, int is the order
+	vector<pair<string, int>> m_Grinding_Spots;
+	vector<fishingSpot> m_Fishing_Spots;
+	vector<pair<string, int>> m_Harpoon_Spots; //string is the harpoon location name, int is the order
 
-	locationInfo m_stationGrindingSpot;
+	locationInfo m_Grinding_StationSpot;
 
-	pair<int, int> m_currentFishIconLoc;
-	string m_currentLocation;
+	pair<int, int> m_CurrentFishIconLoc;
 
 	void dbgMsg(int debugGroup, Debug_Level debugLevel);
-	char* timeString();
+	char* timeString(bool toSave = false);
 	bool checkStatus(Status_Code statuscode);
 
 	void bitBltWholeScreen();
@@ -350,8 +367,8 @@ private:
 
 	Status_Code fish(vector<pair<int, int>>& sections);
 	Status_Code changeBait(Bait_Type type);
-	Status_Code goToTargetLocation(vector<pathInfo> pathInfoList);
-	void goToFishingLocation();
+	Status_Code goToTargetLocation(string targetlocation);
+	Status_Code goToFishingLocation(string targetlocation);
 	void goToSpacetimeRift(bool heal = true);
 	void goToFishVendor();
 	void goToHarpoonVendor();
@@ -363,6 +380,7 @@ private:
 	Status_Code harpoonMassShooting();
 	Status_Code harpoonTrapFunction(string trapRef = "");
 	Status_Code harpoonSetTrap(string trapRef = "");
+	Status_Code lomPlatiumSlime();
 
 	Status_Code stateFishing();
 	Status_Code stateHarpoonFishing();

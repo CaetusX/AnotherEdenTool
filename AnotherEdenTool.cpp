@@ -34,26 +34,25 @@ HWND m_hInfoBox;
 #define FISHING_HARPOON 1
 #define FISHING_TYPE_NUMBER 2
 
-#define DEBUG_NONE 0
+#define DEBUG_SUMMARY 0
 #define DEBUG_KEY 1
-#define DEBUG_SUMMARY 2
-#define DEBUG_BRIEF 3
-#define DEBUG_DETAIL 4
-#define DEBUG_LEVEL_NUMBER 5
+#define DEBUG_BRIEF 2
+#define DEBUG_DETAIL 3
+#define DEBUG_LEVEL_NUMBER 4
 
 string m_grindingType[GRINDING_TYPE_NUMBER] =
 {
     "Endless", "Travel", "Station", "LOM Slime"
 };
 
-string m_fishingType[FISHING_TYPE_NUMBER] =
+string m_Fishing_Type[FISHING_TYPE_NUMBER] =
 {
     "Angler", "Harpoon"
 };
 
 string m_debugLevel[DEBUG_LEVEL_NUMBER] =
 {
-    "No Message", "Key Message", "Summary", "Brief", "Detail"
+    "Summary", "Key Message", "Brief Message", "Detail Message"
 };
 
 void AEBotThread(int n)
@@ -117,7 +116,7 @@ void Interface_Init(HWND hDlg, bool botEnabled)
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_BellStrike);
         CheckDlgButton(hDlg, IDC_CHECK_Target999, 1);
         break;
-    case seperateGrastaMode:
+    case separateGrastaMode:
         CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, IDC_RADIO_SeparateGrasta);
         break;
     /*
@@ -464,7 +463,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
         for (auto i = 0; i < FISHING_TYPE_NUMBER; i++)
         {
-            string fishingtype = m_fishingType[i];
+            string fishingtype = m_Fishing_Type[i];
             SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_ADDSTRING, 0, LPARAM(&fishingtype));
         }
 
@@ -513,6 +512,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             if (m_AEBot)
             {
                 UINT nIndex;
+                string debugmsg;
                 Debug_Level debuglevel = m_AEBot->GetDebugLevel();
 
                 nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_GETCURSEL, 0, 0);
@@ -522,21 +522,28 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                     m_AEBot->SetDebugLevel((Debug_Level)nIndex);
                 }
 
-                string debugmsg = m_AEBot->GetOutputMsg();
-                if (debugmsg.size() > 0)
+                switch (nIndex)
                 {
-                    HWND htext = GetDlgItem(hDlg, IDC_InfoText);
-                    int currentlength = GetWindowTextLength(htext);
-                    SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
-                    SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
-                }
-                //GetDlgItemText(hDlg, IDC_InfoText, const_cast<char*>(debugMsg.c_str()), currentlength);
-                //debugMsg.append();
+                case debug_None:
+                    debugmsg = m_AEBot->GetSummaryMsg();
+                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), debugmsg.c_str());
+                    break;
 
-                //HWND htext = GetDlgItem(hDlg, IDC_InfoText);
-                //int currentlength = GetWindowTextLength(htext);
-                //string debugMsg;
-                //SetWindowText(htext, debugMsg.c_str());
+                case debug_Key:
+                case debug_Brief:
+                case debug_Detail:
+                default:
+                    debugmsg = m_AEBot->GetOutputMsg();
+                    if (debugmsg.size() > 0)
+                    {
+                        HWND htext = GetDlgItem(hDlg, IDC_InfoText);
+                        int currentlength = GetWindowTextLength(htext);
+                        SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
+                        SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
+                    }
+                    break;
+                }
+
             }
         }
         return  (INT_PTR)TRUE;
@@ -683,7 +690,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         case IDC_RADIO_SeparateGrasta:
             if (m_AEBot)
             {
-                m_AEBot->SetMode(seperateGrastaMode);
+                m_AEBot->SetMode(separateGrastaMode);
             }
             wsprintf(strFormat, _T("Seperate Grasta.\r\nGo and click separate in grasta panel, then start.\r\nPlease config what grasta to separate in config_setting file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
