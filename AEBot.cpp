@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <Windows.h>
 #include <vector>
 #include <string>
@@ -10,6 +12,7 @@
 #include <time.h>
 #include <ctime>
 #include <chrono>
+#include <thread>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/text/ocr.hpp>
@@ -30,6 +33,13 @@ string ocrNumericSet = "1234567890,";
 string ocrAlphabeticSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.'()-";
 string ocrAlphanumericSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890,.'()-";
 
+bool m_sharedThreadStop;
+
+void TimerforDailyChronoStone(CAEBot* aebot, int seconds) {
+	std::this_thread::sleep_for(std::chrono::seconds(seconds)); //sleep for 30 seconds
+	//do something...
+	aebot->SetStatus(status_Stop);
+}
 
 void ltrimString(string& str)
 {
@@ -165,6 +175,9 @@ CAEBot::~CAEBot()
 
 void CAEBot::SetStatus(Status_Code statusCode)
 {
+	snprintf(m_debugMsg, 1024, "Set Status ---> %x !!!", statusCode);
+	dbgMsg(m_Debug_Type_Setting, debug_Key);
+
 	m_resValue = statusCode;
 }
 
@@ -197,6 +210,11 @@ char* CAEBot::timeString(bool toSave)
 		strftime(m_timeString, sizeof(m_timeString), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
 	return m_timeString;
+}
+
+void CAEBot::updateStatus(Status_Code statusCode)
+{
+	m_resValue = Status_Code((int)m_resValue | (int)statusCode);
 }
 
 bool CAEBot::checkStatus(Status_Code statuscode)
@@ -282,7 +300,7 @@ string CAEBot::GetSummaryMsg()
 		time_t currenttime;
 		char timeString[80];
 		localtime_s(&timeinfo, &(m_SummaryInfo.startingtime));
-		strftime(timeString, sizeof(m_timeString), "%Y-%m-%d %H:%M:%S", &timeinfo);
+		strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
 		currenttime = time(NULL);
 		int timegap = (int) difftime(currenttime, m_SummaryInfo.startingtime);
@@ -293,6 +311,38 @@ string CAEBot::GetSummaryMsg()
 			m_SummaryInfo.runMobFought, m_SummaryInfo.totalMobFought,
 			m_SummaryInfo.runHorrorFought, m_SummaryInfo.totalHorrorFought);
 		outputmsg.append(summarymsg);
+
+		if (m_SummaryInfo.isStopTimer)
+		{
+			tm utc_field = *std::gmtime(&(m_SummaryInfo.startingtime));
+			utc_field.tm_isdst = -1;
+
+			// JST is GMT +9
+			int hh = 0;
+			int mm = 0;
+			int ss = 0;
+
+			if (m_SummaryInfo.stopTimer.tm_sec >= utc_field.tm_sec)
+				ss = m_SummaryInfo.stopTimer.tm_sec - utc_field.tm_sec;
+			else
+			{
+				ss = m_SummaryInfo.stopTimer.tm_sec - utc_field.tm_sec + 60;
+				mm -= 1;
+			}
+
+			if (m_SummaryInfo.stopTimer.tm_min + mm >= utc_field.tm_min)
+				mm = m_SummaryInfo.stopTimer.tm_min + mm - utc_field.tm_min;
+			else
+			{
+				mm = m_SummaryInfo.stopTimer.tm_min + mm - utc_field.tm_min + 60;
+				hh -= 1;
+			}
+
+			hh = (m_SummaryInfo.stopTimer.tm_hour + hh - (utc_field.tm_hour + 9) + 48) % 24;
+
+			snprintf(summarymsg, 1024, "Stop in %dH %dM %dS at [JST %02d:%02d:%02d]", hh, mm, ss, m_SummaryInfo.stopTimer.tm_hour, m_SummaryInfo.stopTimer.tm_min, m_SummaryInfo.stopTimer.tm_sec);
+			outputmsg.append(summarymsg);
+		}
 		break;
 	}
 
@@ -1598,6 +1648,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 {
 	bool foundtarget = false;
 	locationInfo currentlocation;
+	Status_Code localstatus;
+
 	for (auto i = 0; i < m_LocationList.size(); i++)
 	{
 		if (m_LocationList[i].locationName.compare(targetlocation) == 0)
@@ -1614,7 +1666,7 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 
 	if (!foundtarget)
 	{
-		m_resValue = status_NoPathFound;
+		updateStatus(status_NoPathFound);
 		return m_resValue;
 	}
 
@@ -1630,7 +1682,6 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 		snprintf(m_debugMsg, 1024, "%s %s %s", curType.c_str(), curValue1.c_str(), curValue2.c_str());
 		dbgMsg(m_Debug_Type_Path, debug_Detail);
 
-		m_resValue = status_NoError;
 		if (curType.compare("Click") == 0)
 		{
 			if (!curValue2.empty())
@@ -1651,7 +1702,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 				}
 				else if (curValue1.compare("MapButton") == 0)
 				{
-					m_resValue = smartWorldMap(m_Button_Map);
+					localstatus = smartWorldMap(m_Button_Map);
+					updateStatus(localstatus);
 				}
 				else if (curValue1.compare("Antiquity") == 0)
 				{
@@ -1700,7 +1752,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 
 			if (curValue1.compare("LoadTime") == 0)
 			{
-				m_resValue = sleepLoadTime();
+				localstatus = sleepLoadTime();
+				updateStatus(localstatus);
 			}
 			else
 			{
@@ -1729,19 +1782,23 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 			{
 				if (curValue2.empty())
 				{
-					m_resValue = walkUntilBattle(LR);
+					localstatus = walkUntilBattle(LR);
+					updateStatus(localstatus);
 				}
 				else if (curValue2.compare("LEFT") == 0)
 				{
-					m_resValue = walkUntilBattle(LEFT);
+					localstatus = walkUntilBattle(LEFT);
+					updateStatus(localstatus);
 				}
 				else if (curValue2.compare("RIGHT") == 0)
 				{
-					m_resValue = walkUntilBattle(RIGHT);
+					localstatus = walkUntilBattle(RIGHT);
+					updateStatus(localstatus);
 				}
 				else if (curValue2.compare("NOWHERE") == 0)
 				{
-					m_resValue = walkUntilBattle(NOWHERE);
+					localstatus = walkUntilBattle(NOWHERE);
+					updateStatus(localstatus);
 				}
 			}
 
@@ -1750,7 +1807,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 		{
 			if (curValue1.compare("WorldMap") == 0)
 			{
-				m_resValue = smartWorldMap(m_Button_Map);
+				localstatus = smartWorldMap(m_Button_Map);
+				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("MINI") == 0)
 			{
@@ -1761,7 +1819,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 					if (curValue2.compare(m_Button_MapButtons[i].buttonName) == 0)
 					{
 						isfound = true;
-						m_resValue = smartMiniMap(m_Button_MapButtons[i].xyPosition);
+						localstatus = smartMiniMap(m_Button_MapButtons[i].xyPosition);
+						updateStatus(localstatus);
 						break;
 					}
 				}
@@ -1781,8 +1840,8 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 					if (curValue1.compare(m_Button_MapButtons[i].buttonName) == 0)
 					{
 						isfound = true;
-						m_resValue = smartLoadMap(m_Button_MapButtons[i].xyPosition);
-
+						localstatus = smartLoadMap(m_Button_MapButtons[i].xyPosition);
+						updateStatus(localstatus);
 						break;
 					}
 				}
@@ -1826,23 +1885,28 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 		else if (curType.compare("Task") == 0) {
 			if (curValue1.compare("HarpoonFishing") == 0)
 			{
-				m_resValue = harpoonFunction();
+				localstatus = harpoonFunction();
+				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("HorrorFishing") == 0)
 			{
-				m_resValue = harpoonHorror();
+				localstatus = harpoonHorror();
+				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("TrapFishing") == 0)
 			{
-				m_resValue = harpoonTrapFunction(curValue2);
+				localstatus = harpoonTrapFunction(curValue2);
+				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("PlatiumSlime") == 0)
 			{
-				m_resValue = lomPlatiumSlime();
+				localstatus = lomPlatiumSlime();
+				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("Grinding") == 0)
 			{
-				m_resValue = grindingRun(false);
+				localstatus = grindingRun(false);
+				updateStatus(localstatus);
 			}
 		}
 		else if (curType.compare("Smart") == 0) {
@@ -2122,10 +2186,12 @@ void CAEBot::buyBaitsFromVendor()
 
 Status_Code CAEBot::fishFunction()
 {
+	Status_Code localstatus;
 	if (m_SummaryInfo.currentLocation.compare("Kira Beach") == 0)
 	{
 		//no monster
-		m_resValue = fish(m_Fishing_Locs_KiraBeach);
+		localstatus = fish(m_Fishing_Locs_KiraBeach);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Baruoki") == 0)
@@ -2135,7 +2201,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(711, 366);
 
-		m_resValue = fish(m_Fishing_Locs_Baruoki);
+		localstatus = fish(m_Fishing_Locs_Baruoki);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2146,7 +2213,8 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(775, 450);
 
-		m_resValue = fish(m_Fishing_Locs_Baruoki);
+		localstatus = fish(m_Fishing_Locs_Baruoki);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Acteul") == 0)
@@ -2156,7 +2224,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(1029, 367);
 
-		m_resValue = fish(m_Fishing_Locs_Acteul);
+		localstatus = fish(m_Fishing_Locs_Acteul);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2169,7 +2238,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(1004, 448);
 
-		m_resValue = fish(m_Fishing_Locs_Elzion);
+		localstatus = fish(m_Fishing_Locs_Elzion);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2180,7 +2250,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(935, 455);
 
-		m_resValue = fish(m_Fishing_Locs_ZolPlains);
+		localstatus = fish(m_Fishing_Locs_ZolPlains);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Lake Tillian") == 0)
@@ -2188,7 +2259,8 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(741, 448);
 
-		m_resValue = fish(m_Fishing_Locs_Acteul);
+		localstatus = fish(m_Fishing_Locs_Acteul);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Vasu Mountains") == 0)
@@ -2198,7 +2270,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(727, 442);
 
-		m_resValue = fish(m_Fishing_Locs_Vasu);
+		localstatus = fish(m_Fishing_Locs_Vasu);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2209,7 +2282,8 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(623, 448);
 
-		m_resValue = fish(m_Fishing_Locs_Acteul);
+		localstatus = fish(m_Fishing_Locs_Acteul);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Moonlight Forest") == 0)
@@ -2217,7 +2291,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_CurrentFishIconLoc = make_pair(435, 360);
 
-		m_resValue = fish(m_Fishing_Locs_Moonlight);
+		localstatus = fish(m_Fishing_Locs_Moonlight);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Ancient Battlefield") == 0)
@@ -2225,7 +2300,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_CurrentFishIconLoc = make_pair(1300, 455);
 
-		m_resValue = fish(m_Fishing_Locs_AncientBattlefield);
+		localstatus = fish(m_Fishing_Locs_AncientBattlefield);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Snake Neck Igoma") == 0)
@@ -2233,7 +2309,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		m_CurrentFishIconLoc = make_pair(685, 450);
 
-		m_resValue = fish(m_Fishing_Locs_Igoma);
+		localstatus = fish(m_Fishing_Locs_Igoma);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Rinde") == 0)
@@ -2241,7 +2318,8 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(970, 368);
 
-		m_resValue = fish(m_Fishing_Locs_KiraBeach);
+		localstatus = fish(m_Fishing_Locs_KiraBeach);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Serena Coast") == 0)
@@ -2251,7 +2329,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(796, 448);
 
-		m_resValue = fish(m_Fishing_Locs_Acteul);
+		localstatus = fish(m_Fishing_Locs_Acteul);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2264,7 +2343,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(744, 411);
 
-		m_resValue = fish(m_Fishing_Locs_RucyanaSands);
+		localstatus = fish(m_Fishing_Locs_RucyanaSands);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2275,7 +2355,8 @@ Status_Code CAEBot::fishFunction()
 		m_Fishing_HasHorror = true;
 		m_Fishing_HasMob = true;
 
-		m_resValue = fish(m_Fishing_Locs_KiraBeach);
+		localstatus = fish(m_Fishing_Locs_KiraBeach);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2286,13 +2367,15 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(1068, 400);
 
-		m_resValue = fish(m_Fishing_Locs_Elzion);
+		localstatus = fish(m_Fishing_Locs_Elzion);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Man-Eating Swamp") == 0)
 	{
 		//has monster, no horror
-		m_resValue = fish(m_Fishing_Locs_Acteul);
+		localstatus = fish(m_Fishing_Locs_Acteul);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Charol Plains") == 0)
@@ -2300,7 +2383,8 @@ Status_Code CAEBot::fishFunction()
 		//has monster, no horror
 		m_CurrentFishIconLoc = make_pair(840, 456);
 
-		m_resValue = fish(m_Fishing_Locs_Baruoki);
+		localstatus = fish(m_Fishing_Locs_Baruoki);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dimension Rift") == 0)
@@ -2310,7 +2394,8 @@ Status_Code CAEBot::fishFunction()
 
 		m_CurrentFishIconLoc = make_pair(408, 345);
 
-		m_resValue = fish(m_Fishing_Locs_DimensionRift);
+		localstatus = fish(m_Fishing_Locs_DimensionRift);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 
 		m_Fishing_HasHorror = false;
@@ -2321,7 +2406,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(450, 400);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace Past - Outer Wall Plum") == 0)
@@ -2329,7 +2415,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(450, 400);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace - Outer Wall Bamboo") == 0)
@@ -2337,7 +2424,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(1240, 410);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace Past - Outer Wall Bamboo") == 0)
@@ -2345,7 +2433,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(1240, 410);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace - Inner Wall") == 0)
@@ -2353,7 +2442,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(751, 407);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace Past - Inner Wall") == 0)
@@ -2361,7 +2451,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(603, 408);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace - Outer Wall Pine") == 0)
@@ -2369,7 +2460,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(630, 408);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Dragon Palace Past - Outer Wall Pine") == 0)
@@ -2377,7 +2469,8 @@ Status_Code CAEBot::fishFunction()
 		//no monster
 		//m_CurrentFishIconLoc = make_pair(630, 405);
 
-		m_resValue = fish(m_Fishing_Locs_DragonPalace);
+		localstatus = fish(m_Fishing_Locs_DragonPalace);
+		updateStatus(localstatus);
 		leftClick(m_Button_Leave);
 	}
 
@@ -2802,6 +2895,7 @@ Status_Code CAEBot::lomPlatiumSlime()
 
 Status_Code CAEBot::stateFishing()
 {
+	Status_Code localstatus;
 	snprintf(m_debugMsg, 1024, "Start fishing >>>>>>>>>");
 	dbgMsg(m_Debug_Type_Fishing, debug_Key);
 
@@ -2820,6 +2914,9 @@ Status_Code CAEBot::stateFishing()
 
 		for (int i = 0; i < m_Fishing_Spots.size(); ++i)
 		{
+			if (checkStatus(status_MajorError))
+				return m_resValue;
+
 			m_CurrentBaitsToUse = &(m_Fishing_Spots[i].baitsToUse);
 
 			m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
@@ -2831,17 +2928,28 @@ Status_Code CAEBot::stateFishing()
 			goToSpacetimeRift();
 
 			if (m_Fishing_PondTeleport)
-				goToFishingLocation(m_Fishing_Spots[i].pondName);
+			{
+				localstatus = goToFishingLocation(m_Fishing_Spots[i].pondName);
+				updateStatus(localstatus);
+			}
 			else
-				goToTargetLocation(m_SummaryInfo.currentLocation);
+			{
+				localstatus = goToTargetLocation(m_SummaryInfo.currentLocation);
+				updateStatus(localstatus);
+			}
 
-			m_resValue = fishFunction();
+			if (checkStatus(status_MajorError))
+				return m_resValue;
+
+			localstatus = fishFunction();
+			updateStatus(localstatus);
 		}
 	}
 }
 
 Status_Code CAEBot::stateHarpoonFishing()
 {
+	Status_Code localstatus;
 	snprintf(m_debugMsg, 1024, "Start harpoon fishing>>>>>>>>>");
 	dbgMsg(m_Debug_Type_Fishing, debug_Key);
 
@@ -2863,13 +2971,17 @@ Status_Code CAEBot::stateHarpoonFishing()
 
 			for (int i = 0; i < m_Harpoon_Spots.size(); ++i)
 			{
+				if (checkStatus(status_MajorError))
+					return m_resValue;
+
 				m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 				m_SummaryInfo.runFishCaught = 0;
 				m_SummaryInfo.runMobFought = 0;
 				m_SummaryInfo.runHorrorFought = 0;
 				m_SummaryInfo.currentLocation = m_Harpoon_Spots[i].first;
 
-				goToTargetLocation(m_SummaryInfo.currentLocation);
+				localstatus = goToTargetLocation(m_SummaryInfo.currentLocation);
+				updateStatus(localstatus);
 			}
 		}
 	}
@@ -3348,6 +3460,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 
 Status_Code CAEBot::stateTravelGrinding()
 {
+	Status_Code localstatus;
 	snprintf(m_debugMsg, 1024, "Start travel grinding >>>>>>>>>");
 	dbgMsg(m_Debug_Type_Grinding, debug_Key);
 
@@ -3383,7 +3496,8 @@ Status_Code CAEBot::stateTravelGrinding()
 				m_SummaryInfo.runMobFought = 0;
 				m_SummaryInfo.runHorrorFought = 0;
 
-				m_resValue = goToTargetLocation(m_SummaryInfo.currentLocation); //load X 1280 Y 720 coordination 
+				localstatus = goToTargetLocation(m_SummaryInfo.currentLocation); //load X 1280 Y 720 coordination 
+				updateStatus(localstatus);
 			}
 		}
 
@@ -3395,6 +3509,7 @@ Status_Code CAEBot::stateTravelGrinding()
 
 Status_Code CAEBot::stateStationGrinding()
 {
+	Status_Code localstatus;
 	snprintf(m_debugMsg, 1024, "Start station grinding >>>>>>>>>");
 	dbgMsg(m_Debug_Type_Grinding, debug_Key);
 
@@ -3418,13 +3533,14 @@ Status_Code CAEBot::stateStationGrinding()
 
 		m_SummaryInfo.currentLocation = "Local";
 
-		m_resValue = goToTargetLocation(m_SummaryInfo.currentLocation);
-		// no need to care about the time out here
+		localstatus = goToTargetLocation(m_SummaryInfo.currentLocation);
+		updateStatus(localstatus);
 	}
 }
 
 Status_Code CAEBot::stateLOMSlimeGrinding()
 {
+	Status_Code localstatus;
 	snprintf(m_debugMsg, 1024, "Start LOM Slime grinding >>>>>>>>>");
 	dbgMsg(m_Debug_Type_Grinding, debug_Key);
 
@@ -3474,9 +3590,9 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 				m_SummaryInfo.runMobFought = 0;
 				m_SummaryInfo.runHorrorFought = 0;
 
-				m_resValue = goToTargetLocation(m_SummaryInfo.currentLocation); //load X 1280 Y 720 coordination 
-
-				if (m_resValue == status_Timeout)
+				localstatus = goToTargetLocation(m_SummaryInfo.currentLocation); //load X 1280 Y 720 coordination 
+				updateStatus(localstatus);
+				if (checkStatus(status_Timeout))
 				{
 					m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 					m_SummaryInfo.runFishCaught = 0;
@@ -3484,7 +3600,8 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 					m_SummaryInfo.runHorrorFought = 0;
 					m_SummaryInfo.currentLocation = m_Grinding_LOMReset;
 
-					m_resValue = goToTargetLocation(m_SummaryInfo.currentLocation); // reset
+					localstatus = goToTargetLocation(m_SummaryInfo.currentLocation); // reset
+					updateStatus(localstatus);
 				}
 			}
 		}
@@ -3913,7 +4030,28 @@ void CAEBot::loadSettingConfig()
 		key = localKeyValue.key;
 		value = localKeyValue.value;
 
-		if (key.compare("Load Time") == 0)
+		if (key.compare("Print Image") == 0)
+		{
+			m_IsPrint = stoi(value);
+		}
+		else if (key.compare("Stop Timer") == 0)
+		{
+			keyvalueInfo hmskeyvalue = parseKeyValue(value, string(":"));
+			if (hmskeyvalue.key.compare("HH") == 0)
+			{
+				m_SummaryInfo.isStopTimer = false;
+			}
+			else 
+			{
+				m_SummaryInfo.isStopTimer = true;
+				m_SummaryInfo.stopTimer.tm_hour = stoi(hmskeyvalue.key);
+
+				hmskeyvalue = parseKeyValue(hmskeyvalue.value, string(":"));
+				m_SummaryInfo.stopTimer.tm_min = stoi(hmskeyvalue.key);
+				m_SummaryInfo.stopTimer.tm_sec = stoi(hmskeyvalue.value);
+			}
+		}
+		else if (key.compare("Load Time") == 0)
 		{
 			m_Load_Time = stoi(value);
 		}
@@ -3932,10 +4070,6 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("Time Out") == 0)
 		{
 			m_Time_Out = stoi(value);
-		}
-		else if (key.compare("Print Image") == 0)
-		{
-			m_IsPrint = stoi(value);
 		}
 		else if (key.compare("Debug Type") == 0)
 		{
@@ -4606,6 +4740,49 @@ Status_Code CAEBot::run()
 	m_SummaryInfo.totalHorrorFought = 0;
 	m_SummaryInfo.currentLocation = "Local";
 	m_SummaryInfo.startingtime = time(NULL);
+
+	m_sharedThreadStop = false;
+
+	if (m_SummaryInfo.isStopTimer)
+	{
+		tm utc_field = *std::gmtime(&(m_SummaryInfo.startingtime));
+		utc_field.tm_isdst = -1;
+
+		// JST is GMT +9
+		int hh = 0;
+		int mm = 0;
+		int ss = 0;
+
+		if (m_SummaryInfo.stopTimer.tm_sec >= utc_field.tm_sec)
+		{
+			ss = m_SummaryInfo.stopTimer.tm_sec - utc_field.tm_sec;
+		}
+		else
+		{
+			ss = m_SummaryInfo.stopTimer.tm_sec - utc_field.tm_sec + 60;
+			mm -= 1;
+		}
+
+		if (m_SummaryInfo.stopTimer.tm_min + mm >= utc_field.tm_min)
+		{
+			mm = m_SummaryInfo.stopTimer.tm_min + mm - utc_field.tm_min;
+		}
+		else
+		{
+			mm = m_SummaryInfo.stopTimer.tm_min + mm - utc_field.tm_min + 60;
+			hh -= 1;
+		}
+
+		hh = (m_SummaryInfo.stopTimer.tm_hour + hh - (utc_field.tm_hour + 9) + 48) % 24;
+
+		snprintf(m_debugMsg, 1024, "Stop in %dH %dM %dS (Current GMT %d %d %d)", hh, mm, ss, utc_field.tm_hour, utc_field.tm_min, utc_field.tm_sec);
+		dbgMsg(m_Debug_Type_Setting, debug_Key);
+
+		//need to stop before the daily chrono stone
+		std::thread timerstop(TimerforDailyChronoStone, this, (hh * 60 + mm) * 60 + ss); // Register your `YourFunction`.
+		timerstop.detach(); // this will be non-blocking thread.
+		//timerstop.join(); // this will be blocking thread.
+	}
 
 	switch (m_SummaryInfo.botmode) {
 	case baruokiJumpRopeMode:

@@ -55,7 +55,7 @@ string m_debugLevel[DEBUG_LEVEL_NUMBER] =
     "Summary", "Key Message", "Brief Message", "Detail Message"
 };
 
-void AEBotThread(int n)
+void AEBotTimerThread(int n)
 {
     Status_Code res;
     res = m_AEBot->run();
@@ -279,6 +279,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     SendMessage(m_hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
     SendMessage(m_hWnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
     ShowWindow(m_hWnd, SW_SHOW);
+
 /*
     HWND m_hWnd = CreateWindowEx(WS_EX_TRANSPARENT, szWindowClass, szTitle, (WS_CAPTION | WS_SYSMENU) & ~(WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME), //WS_OVERLAPPEDWINDOW
         CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr, nullptr, hInstance, nullptr);
@@ -511,37 +512,53 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
         case IDT_TIMER1:
             if (m_AEBot)
             {
-                UINT nIndex;
-                string debugmsg;
-                Debug_Level debuglevel = m_AEBot->GetDebugLevel();
-
-                nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_GETCURSEL, 0, 0);
-
-                if (nIndex != debuglevel)
+                if (m_AEBot->GetStatus() == status_Stop)
                 {
-                    m_AEBot->SetDebugLevel((Debug_Level)nIndex);
-                }
-
-                switch (nIndex)
-                {
-                case debug_None:
-                    debugmsg = m_AEBot->GetSummaryMsg();
-                    SetWindowText(GetDlgItem(hDlg, IDC_InfoText), debugmsg.c_str());
-                    break;
-
-                case debug_Key:
-                case debug_Brief:
-                case debug_Detail:
-                default:
-                    debugmsg = m_AEBot->GetOutputMsg();
-                    if (debugmsg.size() > 0)
+                    for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
                     {
-                        HWND htext = GetDlgItem(hDlg, IDC_InfoText);
-                        int currentlength = GetWindowTextLength(htext);
-                        SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
-                        SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
+                        EnableWindow(GetDlgItem(hDlg, k), true);
                     }
-                    break;
+
+                    EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Refresh), true);
+                    EnableWindow(GetDlgItem(hDlg, IDC_EMULATORLIST), true);
+                    EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_Stop), false);
+
+                    KillTimer(hDlg, IDT_TIMER1);
+                }
+                else 
+                {
+                    UINT nIndex;
+                    string debugmsg;
+                    Debug_Level debuglevel = m_AEBot->GetDebugLevel();
+
+                    nIndex = (UINT)SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_GETCURSEL, 0, 0);
+
+                    if (nIndex != debuglevel)
+                    {
+                        m_AEBot->SetDebugLevel((Debug_Level)nIndex);
+                    }
+
+                    switch (nIndex)
+                    {
+                    case debug_None:
+                        debugmsg = m_AEBot->GetSummaryMsg();
+                        SetWindowText(GetDlgItem(hDlg, IDC_InfoText), debugmsg.c_str());
+                        break;
+
+                    case debug_Key:
+                    case debug_Brief:
+                    case debug_Detail:
+                    default:
+                        debugmsg = m_AEBot->GetOutputMsg();
+                        if (debugmsg.size() > 0)
+                        {
+                            HWND htext = GetDlgItem(hDlg, IDC_InfoText);
+                            int currentlength = GetWindowTextLength(htext);
+                            SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
+                            SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
+                        }
+                        break;
+                    }
                 }
 
             }
@@ -586,7 +603,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             if (m_AEBot)
             {
                 //fork a thread for CAEBot
-                std::thread(AEBotThread, 1).detach();
+                std::thread(AEBotTimerThread, 1).detach();
 
                 for (auto k = IDC_CONTROLUNIT_START; k <= IDC_CONTROLUNIT_END; k++)
                 {

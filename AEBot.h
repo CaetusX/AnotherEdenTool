@@ -133,6 +133,8 @@ struct summaryInfo
 	int totalHorrorFought;
 	time_t startingtime;
 	string currentLocation;
+	bool isStopTimer;
+	tm stopTimer;
 };
 
 class CAEBot
@@ -327,6 +329,7 @@ private:
 
 	void dbgMsg(int debugGroup, Debug_Level debugLevel);
 	char* timeString(bool toSave = false);
+	void updateStatus(Status_Code statuscode);
 	bool checkStatus(Status_Code statuscode);
 
 	void bitBltWholeScreen();
