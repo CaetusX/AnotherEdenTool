@@ -863,7 +863,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(1000);
+	Sleep(m_Action_Interval);
 	return status_NoError;
 }
 
@@ -893,7 +893,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(1000);
+	Sleep(m_Action_Interval);
 	return status_NoError;
 }
 
@@ -1166,7 +1166,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 
 	time_t currenttime, lastfighttime;
 
-	Sleep(1000);
+	Sleep(m_Action_Interval);
 
 	if (!inBattle()) // not horror
 	{
@@ -1359,7 +1359,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 	snprintf(m_debugMsg, 1024, "Starting fishing at [%s]", m_SummaryInfo.currentLocation.c_str());
 	dbgMsg(m_Debug_Type_Fishing, debug_Key);
 
-	Sleep(1000);
+	Sleep(m_Action_Interval);
 
 	bitBltWholeScreen();
 	Mat lakeImg = m_BitbltPic.clone();
@@ -1565,7 +1565,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 
 							fishIconClickFunction();
 
-							Sleep(1000);
+							Sleep(m_Action_Interval);
 						} 
 						else // not a battle, probably a fish
 						{
