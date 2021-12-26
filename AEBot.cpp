@@ -863,7 +863,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Action_Interval * 2);
 	return status_NoError;
 }
 
@@ -893,7 +893,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Action_Interval * 2);
 	return status_NoError;
 }
 
