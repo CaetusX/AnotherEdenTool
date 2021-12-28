@@ -223,6 +223,12 @@ bool CAEBot::checkStatus(Status_Code statuscode)
 	return (resultcode == statuscode);
 }
 
+void CAEBot::clearStatus()
+{
+	// clear status at the beginning of each location
+	m_resValue = status_NoError;
+}
+
 Debug_Level CAEBot::GetDebugLevel()
 {
 	return m_Debug_Level;
@@ -844,7 +850,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 
 	leftClick(coord, 500);
 
-	while (!compareImage("World Map"))
+	while (!compareImage("World Map") && !compareImage("Map Title Bar"))
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -863,7 +869,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval * 2);
+	Sleep(m_Action_Interval);
 	return status_NoError;
 }
 
@@ -874,7 +880,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 
 	leftClick(coord, 500);
 
-	while (!compareImage("Mini Map"))
+	while (!compareImage("Mini Map X") && !compareImage("Map Title Bar"))
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -893,7 +899,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval * 2);
+	Sleep(m_Action_Interval);
 	return status_NoError;
 }
 
@@ -1705,18 +1711,6 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 					localstatus = smartWorldMap(m_Button_Map);
 					updateStatus(localstatus);
 				}
-				else if (curValue1.compare("Antiquity") == 0)
-				{
-					leftClick(m_Button_Antiquity);
-				}
-				else if (curValue1.compare("Present") == 0)
-				{
-					leftClick(m_Button_Present);
-				}
-				else if (curValue1.compare("Future") == 0)
-				{
-					leftClick(m_Button_Future);
-				}
 				else if (curValue1.compare("EndOfTimeLoc") == 0)
 				{
 					leftClick(m_Button_EndOfTimeLoc);
@@ -1807,10 +1801,34 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 		{
 			if (curValue1.compare("WorldMap") == 0)
 			{
-				localstatus = smartWorldMap(m_Button_Map);
-				updateStatus(localstatus);
+				if (curValue2.empty())
+				{
+					localstatus = smartWorldMap(m_Button_Map);
+					updateStatus(localstatus);
+				}
+				else
+				{
+					bool isfound = false;
+
+					for (auto i = 0; i < m_Button_MapButtons.size(); i++)
+					{
+						if (curValue2.compare(m_Button_MapButtons[i].buttonName) == 0)
+						{
+							isfound = true;
+							localstatus = smartWorldMap(m_Button_MapButtons[i].xyPosition);
+							updateStatus(localstatus);
+							break;
+						}
+					}
+
+					if (!isfound)
+					{
+						snprintf(m_debugMsg, 1024, "WorldMap %s not found!", curValue2.c_str());
+						dbgMsg(m_Debug_Type_Path, debug_Detail);
+					}
+				}
 			}
-			else if (curValue1.compare("MINI") == 0)
+			else if (curValue1.compare("MiniMap") == 0)
 			{
 				bool isfound = false;
 
@@ -1827,7 +1845,7 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 
 				if (!isfound)
 				{
-					snprintf(m_debugMsg, 1024, "!!! %s not found", curValue2.c_str());
+					snprintf(m_debugMsg, 1024, "MiniMap %s not found!", curValue2.c_str());
 					dbgMsg(m_Debug_Type_Path, debug_Detail);
 				}
 			}
@@ -1848,7 +1866,7 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 
 				if (!isfound)
 				{
-					snprintf(m_debugMsg, 1024, "!!! %s not found", curValue1.c_str());
+					snprintf(m_debugMsg, 1024, "LoadMap %s not found!", curValue1.c_str());
 					dbgMsg(m_Debug_Type_Path, debug_Detail);
 				}
 			}
@@ -2072,11 +2090,20 @@ void CAEBot::goToFishVendor()
 	buyBaitsFromVendor();
 }
 
-void CAEBot::goToHarpoonVendor()
+void CAEBot::goToHarpoonVendor(bool fromotherplace)
 {
-	goToSpacetimeRift();
-	m_SummaryInfo.currentLocation = "Harpoon Vendor";
-	goToTargetLocation(m_SummaryInfo.currentLocation);
+	if (fromotherplace)
+	{
+		goToSpacetimeRift();
+
+		m_SummaryInfo.currentLocation = "Harpoon Vendor From Other Place";
+		goToTargetLocation(m_SummaryInfo.currentLocation);
+	}
+	else
+	{
+		m_SummaryInfo.currentLocation = "Harpoon Vendor";
+		goToTargetLocation(m_SummaryInfo.currentLocation);
+	}
 
 	for (auto i = 480; i < 1540; i = i + 30) //click through text
 		leftClick(i, 290, 100);
@@ -2919,6 +2946,7 @@ Status_Code CAEBot::stateFishing()
 
 			m_CurrentBaitsToUse = &(m_Fishing_Spots[i].baitsToUse);
 
+			clearStatus();
 			m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 			m_SummaryInfo.runFishCaught = 0;
 			m_SummaryInfo.runMobFought = 0;
@@ -2953,19 +2981,26 @@ Status_Code CAEBot::stateHarpoonFishing()
 	snprintf(m_debugMsg, 1024, "Start harpoon fishing>>>>>>>>>");
 	dbgMsg(m_Debug_Type_Fishing, debug_Key);
 
+	bool firstrun = true;
+
 	while (1)
 	{
+		if (checkStatus(status_MajorError))
+			return m_resValue;
+
+		loadFishingConfig();
+		loadPathConfig();
+		loadSettingConfig();
+
+		if (!m_Harpoon_SkipVendor)
+			goToHarpoonVendor(firstrun);
+		
+		firstrun = false;
+
 		for (auto j = 0; j < m_Harpoon_Loop; j++)
 		{
-			loadFishingConfig();
-			loadPathConfig();
-			loadSettingConfig();
-
 			if (checkStatus(status_MajorError))
 				return m_resValue;
-
-			if (!m_Harpoon_SkipVendor && j == 0)
-				goToHarpoonVendor();
 
 			m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
@@ -2974,6 +3009,7 @@ Status_Code CAEBot::stateHarpoonFishing()
 				if (checkStatus(status_MajorError))
 					return m_resValue;
 
+				clearStatus();
 				m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 				m_SummaryInfo.runFishCaught = 0;
 				m_SummaryInfo.runMobFought = 0;
@@ -3491,6 +3527,7 @@ Status_Code CAEBot::stateTravelGrinding()
 				if (! m_Grinding_SkipSpaceTimeRift)
 					goToSpacetimeRift();
 
+				clearStatus();
 				m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 				m_SummaryInfo.runFishCaught = 0;
 				m_SummaryInfo.runMobFought = 0;
@@ -3526,6 +3563,7 @@ Status_Code CAEBot::stateStationGrinding()
 
 		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
+		clearStatus();
 		m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 		m_SummaryInfo.runFishCaught = 0;
 		m_SummaryInfo.runMobFought = 0;
@@ -3585,6 +3623,7 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 
 			for (auto k = 0; k < m_Grinding_Spots[i].second; k++)
 			{
+				clearStatus();
 				m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 				m_SummaryInfo.runFishCaught = 0;
 				m_SummaryInfo.runMobFought = 0;
@@ -3594,6 +3633,7 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 				updateStatus(localstatus);
 				if (checkStatus(status_Timeout))
 				{
+					clearStatus();
 					m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 					m_SummaryInfo.runFishCaught = 0;
 					m_SummaryInfo.runMobFought = 0;
@@ -3626,6 +3666,7 @@ Status_Code CAEBot::stateEndlessGrinding()
 
 		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
+		clearStatus();
 		m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 		m_SummaryInfo.runFishCaught = 0;
 		m_SummaryInfo.runMobFought = 0;
@@ -4314,18 +4355,6 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("MapButton") == 0)
 		{
 			m_Button_Map = parseXYinfo(value);
-		}
-		else if (key.compare("Antiquity") == 0)
-		{
-			m_Button_Antiquity = parseXYinfo(value);
-		}
-		else if (key.compare("Present") == 0)
-		{
-			m_Button_Present = parseXYinfo(value);
-		}
-		else if (key.compare("Future") == 0)
-		{
-			m_Button_Future = parseXYinfo(value);
 		}
 		else if (key.compare("EndOfTimeLoc") == 0)
 		{

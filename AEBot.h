@@ -331,6 +331,7 @@ private:
 	char* timeString(bool toSave = false);
 	void updateStatus(Status_Code statuscode);
 	bool checkStatus(Status_Code statuscode);
+	void clearStatus();
 
 	void bitBltWholeScreen();
 	void copyPartialPic(Mat& partialPic, int cols, int rows, int x, int y);
@@ -374,7 +375,7 @@ private:
 	Status_Code goToFishingLocation(string targetlocation);
 	void goToSpacetimeRift(bool heal = true);
 	void goToFishVendor();
-	void goToHarpoonVendor();
+	void goToHarpoonVendor(bool fromotherplace = false);
 	void buyBaitsFromVendor();
 	Status_Code fishFunction();
 	void fishIconClickFunction();
