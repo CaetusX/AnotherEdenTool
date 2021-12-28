@@ -2063,11 +2063,9 @@ void CAEBot::goToSpacetimeRift(bool heal)
 	dbgMsg(m_Debug_Type_Path, debug_Detail);
 
 	smartWorldMap(m_Button_Map);
-	leftClick(m_Button_EndOfTimeLoc);
-	leftClick(m_Button_SpacetimeRift);
-	leftClick(m_Button_SpacetimeRift);
-	leftClick(m_Button_Yes);
-	Sleep(m_Load_Time);
+	smartWorldMap(m_Button_EndOfTimeLoc);
+	smartWorldMap(m_Button_SpacetimeRift);
+	smartLoadMap(m_Button_SpacetimeRift);
 
 	if (heal)
 	{
