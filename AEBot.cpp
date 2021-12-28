@@ -151,6 +151,7 @@ CAEBot::CAEBot(HWND pParent)
 
 	m_Action_Interval = 3000;
 	m_Fast_Action_Interval = 200;
+	m_Slow_Action_Interval = 5000;
 	m_Walk_Distance_Ratio = 1.0;
 	m_Smart_DownUp_Interval = 200;
 	m_Smart_DownUp_Threshold = 700;
@@ -869,7 +870,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Slow_Action_Interval);
 	return status_NoError;
 }
 
@@ -899,7 +900,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		}
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Slow_Action_Interval);
 	return status_NoError;
 }
 
@@ -995,6 +996,7 @@ Status_Code CAEBot::sleepLoadTime()
 			Sleep(500);
 	}
 
+	Sleep(m_Slow_Action_Interval);
 	return status_NoError;
 }
 
@@ -1152,12 +1154,12 @@ Status_Code CAEBot::engageMobFightNow()
 	snprintf(m_debugMsg, 1024, "A battle ends");
 	dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
-	for (auto i = 0; i < 6; i++)
+	for (auto i = 0; i < 3; i++)
 	{
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Slow_Action_Interval);
 
 	snprintf(m_debugMsg, 1024, "End of a battle");
 	dbgMsg(m_Debug_Type_Fighting, debug_Detail);
@@ -1330,7 +1332,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
 	}
 
-	Sleep(m_Action_Interval);
+	Sleep(m_Slow_Action_Interval);
 
 	leftClick(m_Button_Yes);
 
@@ -4103,6 +4105,10 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("Fast Interval") == 0)
 		{
 			m_Fast_Action_Interval = stoi(value);
+		}
+		else if (key.compare("Slow Interval") == 0)
+		{
+			m_Slow_Action_Interval = stoi(value);
 		}
 		else if (key.compare("Image Threshold") == 0)
 		{

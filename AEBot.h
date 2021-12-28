@@ -277,6 +277,7 @@ private:
 
 	int m_Action_Interval;
 	int m_Fast_Action_Interval;
+	int m_Slow_Action_Interval;
 	int m_Smart_DownUp_Interval;
 	int m_Smart_DownUp_Threshold;
 
