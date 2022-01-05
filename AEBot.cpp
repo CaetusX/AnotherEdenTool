@@ -36,9 +36,27 @@ string ocrAlphanumericSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 bool m_sharedThreadStop;
 
 void TimerforDailyChronoStone(CAEBot* aebot, int seconds) {
-	std::this_thread::sleep_for(std::chrono::seconds(seconds)); //sleep for 30 seconds
+	std::this_thread::sleep_for(std::chrono::seconds(seconds)); //sleep for given seconds
 	//do something...
-	aebot->SetStatus(status_Stop);
+	Bot_Mode lastmode;
+	lastmode = aebot->GetMode();
+
+	//stop everything for the daily chrone stone
+	aebot->SetStatus(status_DailyChroneStone);
+
+	//sleep for 30 seconds so that the previous action fully stops
+	std::this_thread::sleep_for(std::chrono::seconds(30));
+
+	Status_Code returnstatus;
+	returnstatus = aebot->dailyChroneStone();
+
+	if (returnstatus == status_NoError)
+	{
+		aebot->SetMode(lastmode);
+		aebot->run();
+	}
+	else
+		aebot->SetStatus(status_Stop);
 }
 
 void ltrimString(string& str)
@@ -288,8 +306,11 @@ string CAEBot::GetSummaryMsg()
 		snprintf(summarymsg, 1024, "%s\r\nSeparate grasta\r\n", timeString());
 		break;
 	case captureScreenMode:
-	default:
 		snprintf(summarymsg, 1024, "%s\r\n%s\r\n", timeString(), m_debugMsg);
+		break;
+	case initialMode:
+	default:
+		snprintf(summarymsg, 1024, "%s\r\n", timeString());
 		break;
 	}
 
@@ -799,16 +820,15 @@ void CAEBot::walk(Direction_Info botDirection, int time, int sleepTime)
 
 bool CAEBot::inBattle()
 {
-	Mat partialPic;
-
 	/*
+	Mat partialPic;
 	bitBltWholeScreen();
 	copyPartialPic(partialPic, 106, 39, 77, 37);
 	bool inBattleResult = (getText(partialPic).compare("Status") == 0);
 	*/
 
 	bool inBattleStatus = compareImage("Battle Status");
-	bool inBattleAttack = compareImage("Attack Dark") || compareImage("Attack Light");
+	bool inBattleAttack = compareImage("Attack");
 
 	if (inBattleStatus && inBattleAttack)
 	{
@@ -829,8 +849,11 @@ bool CAEBot::endBattle()
 	Mat partialPic1, partialPic2;
 	bitBltWholeScreen();
 
+	/*
 	copyPartialPic(partialPic1, 150, 70, 20, 40);
 	bool endBattleResult1 = (getText(partialPic1).compare("Items") == 0);
+	*/
+	bool endBattleResult1 = compareImage("Battle End");
 
 	copyPartialPic(partialPic2, 400, 70, 660, 80);
 	bool endBattleResult2 = (getText(partialPic2).find("Got") != string::npos);
@@ -838,6 +861,11 @@ bool CAEBot::endBattle()
 	if (endBattleResult1 || endBattleResult2)
 	{
 		snprintf(m_debugMsg, 1024, "end battle %x %x", endBattleResult1, endBattleResult2);
+		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+	}
+	else
+	{
+		snprintf(m_debugMsg, 1024, "not end battle %x %x", endBattleResult1, endBattleResult2);
 		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 	}
 
@@ -851,7 +879,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 
 	leftClick(coord, 500);
 
-	while (!compareImage("World Map") && !compareImage("Map Title Bar"))
+	while (!compareImage("TopTitleBar") && !compareImage("Map Title Bar"))
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -911,7 +939,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 
 	leftClick(coord, 500);
 
-	while (!compareImage("Yes"))
+	while (!compareImage("Confirm"))
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -1998,7 +2026,7 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	startingtime = time(NULL);
-	while (!compareImage("FishingSpot"))
+	while (!compareImage("TopTitleBar"))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -2038,9 +2066,9 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 			txt2 = ocrPicture(ocr_Alphabetic, 560, 60, 840, 105 + i * 164);
 		else
 		{
-			findclickres = findClick("AreaFishing", (int)M_WIDTH, 250, 0, 700);
-
-			txt2 = ocrPicture(ocr_Alphabetic, 560, 60, 840, (int) (findclickres.second.second / m_heightPct - 50) );
+			findclickres = findClick("AreaFishing", (int)M_WIDTH, 280, 0, 670);
+			// why -20? AreaFishing is 96 x 96, there is a gap of 28 from the top of AreaFishing to the top of the words
+			txt2 = ocrPicture(ocr_Alphabetic, 560, 60, 840, (int) (findclickres.second.second / m_heightPct - 30) );
 		}
 
 		if (targetlocation.compare(txt1) == 0)
@@ -2064,7 +2092,6 @@ void CAEBot::goToSpacetimeRift(bool heal)
 
 	smartWorldMap(m_Button_Map);
 	smartWorldMap(m_Button_EndOfTimeLoc);
-	smartWorldMap(m_Button_SpacetimeRift);
 	smartLoadMap(m_Button_SpacetimeRift);
 
 	if (heal)
@@ -2542,7 +2569,7 @@ Status_Code CAEBot::harpoonFunction()
 	leftClick(harpoonfish.first, harpoonfish.second, m_Action_Interval, false);
 	Sleep(m_Harpoon_Interval); // wait for the result to load
 
-	while (!compareImage("HarpoonResult"))
+	while (!compareImage("FishingResult"))
 	{
 		// five attemps, failed
 		if (counter >= 4)
@@ -2601,7 +2628,7 @@ Status_Code CAEBot::harpoonFunction()
 	counter = 0;
 	startingtime = time(NULL);
 
-	while (compareImage("HarpoonResult"))
+	while (compareImage("FishingResult"))
 	{
 		counter++;
 
@@ -2810,7 +2837,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 {
 	string txt;
 
-	bool imageresult = compareImage("HarpoonSetupTrap");
+	bool imageresult = compareImage("TopTitleBar");
 	if (!imageresult) // something wrong with trap set up window
 	{
 		snprintf(m_debugMsg, 1024, "Trap [%s] set up window is wrong", trapRef.c_str());
@@ -3341,7 +3368,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 				}
 
 				leftClick(880, 750, 500);
-				while (!compareImage("Cat Hokora"))
+				while (!compareImage("TopTitleBar"))
 				{
 					snprintf(m_debugMsg, 1024, ".");
 					dbgMsg(m_Debug_Type_Grasta, debug_Detail);
@@ -3373,7 +3400,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 
 			leftClick(m_Grasta_Button[Grasta_Action_Separate].xyPosition);
 
-			while (!compareImage("Cat Hokora"))
+			while (!compareImage("TopTitleBar"))
 			{
 				snprintf(m_debugMsg, 1024, ".");
 				dbgMsg(m_Debug_Type_Grasta, debug_Detail);
@@ -3398,7 +3425,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 				}
 			}
 
-			while (!compareImage("Cat Hokora"))
+			while (!compareImage("TopTitleBar"))
 			{
 				snprintf(m_debugMsg, 1024, ".");
 				dbgMsg(m_Debug_Type_Grasta, debug_Detail);
@@ -3674,6 +3701,73 @@ Status_Code CAEBot::stateEndlessGrinding()
 
 		m_resValue = grindingRun(true);
 	}
+}
+
+Status_Code CAEBot::dailyChroneStone()
+{
+	time_t currenttime, startingtime;
+	pair<bool, pair <int, int>> findclickres;
+
+	m_SummaryInfo.botmode = initialMode;
+
+	snprintf(m_debugMsg, 1024, "Check Daily Chrone Stone >>>>>>>>>");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+	startingtime = time(NULL);
+	while (!compareImage("Watch Video"))
+	{
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // return if timeout
+		{
+			snprintf(m_debugMsg, 1024, "Daily Chrone Stone timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(1000);
+		}
+	}
+
+	//wait 30 seconds for ads to fully load
+	Sleep(30000);
+
+	findclickres = findClick("Watch Video", 0, 0, 0, 0);
+	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+
+	startingtime = time(NULL);
+	bool dailyAds = false;
+	while (!compareImage("Confirm"))
+	{
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // if ads
+		{
+			dailyAds = true;
+		}
+		else
+		{
+			Sleep(1000);
+		}
+	}
+
+	if (dailyAds)
+	{
+		leftClick(1698, 48);
+		Sleep(10000);
+		leftClick(1698, 48);
+	}
+	else
+	{
+		findclickres = findClick("Confirm", 0, 0, 0, 0);
+		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+	}
+
+	findclickres = findClick("Confirm", 0, 0, 0, 0);
+	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+
+	return status_NoError;
 }
 
 Status_Code CAEBot::captureScreenNow(const char* nameSuffix)
@@ -4811,7 +4905,7 @@ Status_Code CAEBot::run()
 		snprintf(m_debugMsg, 1024, "Stop in %dH %dM %dS (Current GMT %d %d %d)", hh, mm, ss, utc_field.tm_hour, utc_field.tm_min, utc_field.tm_sec);
 		dbgMsg(m_Debug_Type_Setting, debug_Key);
 
-		//need to stop before the daily chrono stone
+		//need to stop before the daily chrono stone at 00:00:00 UTC + 9
 		std::thread timerstop(TimerforDailyChronoStone, this, (hh * 60 + mm) * 60 + ss); // Register your `YourFunction`.
 		timerstop.detach(); // this will be non-blocking thread.
 		//timerstop.join(); // this will be blocking thread.

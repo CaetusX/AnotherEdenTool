@@ -22,6 +22,7 @@ enum Status_Code {
 
 	status_WrongEmulator		= 0x10000001,
 	status_Stop					= 0x10000002,
+	status_DailyChroneStone		= 0x10000003,
 
 	status_Timeout				= 0x01000001,
 	status_BreakRun				= 0x01000002,
@@ -157,6 +158,7 @@ public:
 	void SetEmulator(int emulatorIndex);
 	string GetEmulatorName(int emulatorIndex);
 
+	Status_Code dailyChroneStone();
 	Status_Code captureScreenNow(const char* nameSuffix = NULL);
 	void init();
 	Status_Code setup();
