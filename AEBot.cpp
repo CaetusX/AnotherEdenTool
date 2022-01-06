@@ -3767,6 +3767,23 @@ Status_Code CAEBot::dailyChroneStone()
 	findclickres = findClick("Confirm", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
+	startingtime = time(NULL);
+	while (!compareImage("Menu"))
+	{
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // return if timeout
+		{
+			snprintf(m_debugMsg, 1024, "Daily Chrone Stone result timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(1000);
+		}
+	}
+
 	return status_NoError;
 }
 
