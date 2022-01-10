@@ -12,32 +12,36 @@ enum Bot_Mode { initialMode,
 	silverHitBell30Mode, silverHitBell999Mode, 
 	separateGrastaMode, 
 	captureScreenMode, 
-	engageFightMode
+	engageFightMode,
+	idleMode,
 };
 
 enum Status_Code { 
 	status_NoError				= 0x00000000,
 	status_MajorError			= 0x10000000,
-	status_MinorError			= 0x01000000,
+	status_MediumError			= 0x01000000,
+	status_MinorError			= 0x00100000,
 
 	status_WrongEmulator		= 0x10000001,
 	status_Stop					= 0x10000002,
-	status_DailyChroneStone		= 0x10000003,
 
-	status_Timeout				= 0x01000001,
-	status_BreakRun				= 0x01000002,
-	status_NoPathFound			= 0x01000003,
+	status_DailyChroneStone		= 0x01000001,
 
-	status_NotFight				= 0x00100001, 
-	status_FightFail			= 0x00100002,
+	status_Timeout				= 0x00100001,
+	status_BreakRun				= 0x00100002,
+	status_NoPathFound			= 0x00100003,
 
-	status_NoFishing			= 0x00101001,
-	status_FishingNoBait		= 0x00101002,
-	status_FishingHorrorMax		= 0x00101003,
-	status_NoHarpoonCatch		= 0x00101101,
-	status_HarpoonCatchFail		= 0x00101102, 
-	status_HarpoonTrapWaiting	= 0x00101103,
-	status_HarpoonTrapFail		= 0x00101104
+	status_NotFight				= 0x00010001, 
+	status_FightFail			= 0x00010002,
+
+	status_NoFishing			= 0x00011001,
+	status_FishingNoBait		= 0x00011002,
+	status_FishingHorrorMax		= 0x00011003,
+	status_NoHarpoonCatch		= 0x00011101,
+	status_HarpoonCatchFail		= 0x00011102,
+	status_NoHarpoonTrap		= 0x00011103,
+	status_HarpoonTrapWaiting	= 0x00011104,
+	status_HarpoonTrapFail		= 0x00011105
 };
 enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
 
@@ -160,6 +164,7 @@ public:
 
 	Status_Code dailyChroneStone();
 	Status_Code captureScreenNow(const char* nameSuffix = NULL);
+	Status_Code idleNow();
 	void init();
 	Status_Code setup();
 	Status_Code run();
@@ -305,6 +310,7 @@ private:
 	int m_Grinding_LOMTurn;
 
 	int m_Harpoon_Loop;
+	int m_Harpoon_MassShooting;
 	int m_Harpoon_Xinc;
 	int m_Harpoon_Yinc;
 	int m_Harpoon_Xmin;

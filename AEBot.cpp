@@ -44,8 +44,8 @@ void TimerforDailyChronoStone(CAEBot* aebot, int seconds) {
 	//stop everything for the daily chrone stone
 	aebot->SetStatus(status_DailyChroneStone);
 
-	//sleep for 30 seconds so that the previous action fully stops
-	std::this_thread::sleep_for(std::chrono::seconds(30));
+	//sleep for 60 seconds so that the previous action fully stops
+	std::this_thread::sleep_for(std::chrono::seconds(60));
 
 	Status_Code returnstatus;
 	returnstatus = aebot->dailyChroneStone();
@@ -167,6 +167,8 @@ CAEBot::CAEBot(HWND pParent)
 
 	m_resValue = status_NoError;
 
+	m_Time_Out = 60;
+
 	m_Action_Interval = 3000;
 	m_Fast_Action_Interval = 200;
 	m_Slow_Action_Interval = 5000;
@@ -195,7 +197,7 @@ CAEBot::~CAEBot()
 void CAEBot::SetStatus(Status_Code statusCode)
 {
 	snprintf(m_debugMsg, 1024, "Set Status ---> %x !!!", statusCode);
-	dbgMsg(m_Debug_Type_Setting, debug_Key);
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	m_resValue = statusCode;
 }
@@ -308,7 +310,6 @@ string CAEBot::GetSummaryMsg()
 	case captureScreenMode:
 		snprintf(summarymsg, 1024, "%s\r\n%s\r\n", timeString(), m_debugMsg);
 		break;
-	case initialMode:
 	default:
 		snprintf(summarymsg, 1024, "%s\r\n", timeString());
 		break;
@@ -384,6 +385,9 @@ Bot_Mode CAEBot::GetMode()
 
 void CAEBot::SetMode(Bot_Mode botMode)
 {
+	snprintf(m_debugMsg, 1024, "Set Mode ---> %x !!!", botMode);
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
 	m_SummaryInfo.botmode = botMode;
 }
 
@@ -1048,7 +1052,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 
 	while (!inBattle())
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		currenttime = time(NULL);
@@ -1708,7 +1712,7 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 
 	for (auto j = 0; j < currentlocation.pathStepsList.size(); j++)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError) || checkStatus(status_MinorError))
 			return m_resValue;
 
 		string curType = currentlocation.pathStepsList[j].type;
@@ -1986,8 +1990,6 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 			}
 		}
 
-		if (checkStatus(status_MinorError))
-			return m_resValue;
 	}
 
 	return status_NoError;
@@ -2566,8 +2568,15 @@ Status_Code CAEBot::harpoonFunction()
 	findclickres = findClick("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
 	harpoonfish = findclickres.second;
 
-	leftClick(harpoonfish.first, harpoonfish.second, m_Action_Interval, false);
-	Sleep(m_Harpoon_Interval); // wait for the result to load
+	if (m_Harpoon_MassShooting)
+	{
+		harpoonMassShooting();
+	}
+	else
+	{
+		leftClick(harpoonfish.first, harpoonfish.second, m_Action_Interval, false);
+		Sleep(m_Harpoon_Interval); // wait for the result to load
+	}
 
 	while (!compareImage("FishingResult"))
 	{
@@ -2673,12 +2682,29 @@ Status_Code CAEBot::harpoonHorror()
 	pair<int, int> harpoonhorror;
 	pair<bool, pair <int, int>> findclickres;
 	time_t currenttime, startingtime;
+	bool foundHorror = false;
 
-	findclickres = findClick("HarpoonHorror", 1545, 500, 100, 50);
-	harpoonhorror = findclickres.second;
+	if (m_Harpoon_MassShooting)
+	{
+		harpoonMassShooting();
 
-	if (findclickres.first && 
-		!(harpoonhorror.first >= 1390 * m_widthPct && harpoonhorror.second <= 235 * m_heightPct))
+		if (inBattle())
+			foundHorror = true;
+	}
+	else
+	{
+		findclickres = findClick("HarpoonHorror", 1545, 500, 100, 50);
+		harpoonhorror = findclickres.second;
+
+		if (findclickres.first &&
+			!(harpoonhorror.first >= 1390 * m_widthPct && harpoonhorror.second <= 235 * m_heightPct))
+		{
+			leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
+			foundHorror = true;
+		}
+	}
+
+	if (foundHorror)
 	{
 		leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
 
@@ -2745,6 +2771,9 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	
 	pair<bool, pair <int, int>> findclickres;
 	bool findtraplarge;
+
+	if (m_Harpoon_MassShooting)
+		return status_NoHarpoonTrap;
 
 	findclickres = findClick("HarpoonTrap", (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findclicktrap = findclickres.second;
@@ -2955,7 +2984,7 @@ Status_Code CAEBot::stateFishing()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadFishingConfig();
@@ -2968,7 +2997,7 @@ Status_Code CAEBot::stateFishing()
 
 		for (int i = 0; i < m_Fishing_Spots.size(); ++i)
 		{
-			if (checkStatus(status_MajorError))
+			if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 				return m_resValue;
 
 			m_CurrentBaitsToUse = &(m_Fishing_Spots[i].baitsToUse);
@@ -2993,7 +3022,7 @@ Status_Code CAEBot::stateFishing()
 				updateStatus(localstatus);
 			}
 
-			if (checkStatus(status_MajorError))
+			if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 				return m_resValue;
 
 			localstatus = fishFunction();
@@ -3012,7 +3041,7 @@ Status_Code CAEBot::stateHarpoonFishing()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadFishingConfig();
@@ -3026,14 +3055,14 @@ Status_Code CAEBot::stateHarpoonFishing()
 
 		for (auto j = 0; j < m_Harpoon_Loop; j++)
 		{
-			if (checkStatus(status_MajorError))
+			if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 				return m_resValue;
 
 			m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
 			for (int i = 0; i < m_Harpoon_Spots.size(); ++i)
 			{
-				if (checkStatus(status_MajorError))
+				if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 					return m_resValue;
 
 				clearStatus();
@@ -3460,12 +3489,12 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 
 	while (endlessGrinding || !m_Grinding_SkipRunning)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		while (!inBattle())
 		{
-			if (checkStatus(status_MajorError))
+			if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 				return m_resValue;
 
 			currenttime = time(NULL);
@@ -3529,7 +3558,7 @@ Status_Code CAEBot::stateTravelGrinding()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3543,7 +3572,7 @@ Status_Code CAEBot::stateTravelGrinding()
 
 			for (auto k = 0; k < m_Grinding_Spots[i].second; k++)
 			{
-				if (checkStatus(status_MajorError))
+				if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 					return m_resValue;
 				
 				m_CurrentGrindingCounter = 0;
@@ -3579,7 +3608,7 @@ Status_Code CAEBot::stateStationGrinding()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3611,7 +3640,7 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3685,7 +3714,7 @@ Status_Code CAEBot::stateEndlessGrinding()
 
 	while (1)
 	{
-		if (checkStatus(status_MajorError))
+		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
 		loadPathConfig();
@@ -3708,7 +3737,7 @@ Status_Code CAEBot::dailyChroneStone()
 	time_t currenttime, startingtime;
 	pair<bool, pair <int, int>> findclickres;
 
-	m_SummaryInfo.botmode = initialMode;
+	m_SummaryInfo.botmode = idleMode;
 
 	snprintf(m_debugMsg, 1024, "Check Daily Chrone Stone >>>>>>>>>");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
@@ -3733,6 +3762,9 @@ Status_Code CAEBot::dailyChroneStone()
 	//wait 30 seconds for ads to fully load
 	Sleep(30000);
 
+	snprintf(m_debugMsg, 1024, "Watch Video");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
 	findclickres = findClick("Watch Video", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
@@ -3752,6 +3784,9 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
+	snprintf(m_debugMsg, 1024, "Confirm with dailyAds %x", dailyAds);
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
 	if (dailyAds)
 	{
 		leftClick(1698, 48);
@@ -3764,7 +3799,10 @@ Status_Code CAEBot::dailyChroneStone()
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 
-	findclickres = findClick("Confirm", 0, 0, 0, 0);
+	snprintf(m_debugMsg, 1024, "to click confirm");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+	findclickres = findClick("OK", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	startingtime = time(NULL);
@@ -3783,6 +3821,9 @@ Status_Code CAEBot::dailyChroneStone()
 			Sleep(1000);
 		}
 	}
+
+	snprintf(m_debugMsg, 1024, "fully loaded");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	return status_NoError;
 }
@@ -3817,6 +3858,27 @@ Status_Code CAEBot::captureImageNow(Mat imagePicCrop, const char* nameSuffix)
 	imwrite(filename, imagePicCrop);
 
 	return status_NoError;
+}
+
+Status_Code CAEBot::idleNow()
+{
+	snprintf(m_debugMsg, 1024, "Idling...");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+	while (1)
+	{
+		if ( (m_resValue == status_Stop) )
+		{ 
+			snprintf(m_debugMsg, 1024, "status %x mode %x", m_resValue, m_SummaryInfo.botmode);
+			dbgMsg(m_Debug_Type_Platform, debug_Key);
+			return m_resValue;
+		}
+
+		snprintf(m_debugMsg, 1024, "... %x", m_resValue);
+		dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+		Sleep(1000);
+	}
 }
 
 keyvalueInfo CAEBot::parseKeyValue(string str, string parser, bool reverseorder)
@@ -4325,6 +4387,10 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Harpoon_Loop = stoi(value);
 		}
+		else if (key.compare("Harpoon Mass Shooting") == 0)
+		{
+			m_Harpoon_MassShooting = stoi(value);
+		}
 		else if (key.compare("Harpoon X incremental") == 0)
 		{
 			m_Harpoon_Xinc = (int)round(stoi(value) * M_WIDTH / M_WIDTH_1280);
@@ -4765,6 +4831,11 @@ void CAEBot::loadConfig()
 			if (stoi(value) == 1)
 				m_SummaryInfo.botmode = captureScreenMode;
 		}
+		else if (key.compare("Idle") == 0)
+		{
+			if (stoi(value) == 1)
+				m_SummaryInfo.botmode = idleMode;
+		}
 		else if (key.compare("Dynamic Image") == 0)
 		{
 			parseDynamicImage(file);
@@ -4920,13 +4991,16 @@ Status_Code CAEBot::run()
 		hh = (m_SummaryInfo.stopTimer.tm_hour + hh - (utc_field.tm_hour + 9) + 48) % 24;
 
 		snprintf(m_debugMsg, 1024, "Stop in %dH %dM %dS (Current GMT %d %d %d)", hh, mm, ss, utc_field.tm_hour, utc_field.tm_min, utc_field.tm_sec);
-		dbgMsg(m_Debug_Type_Setting, debug_Key);
+		dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 		//need to stop before the daily chrono stone at 00:00:00 UTC + 9
 		std::thread timerstop(TimerforDailyChronoStone, this, (hh * 60 + mm) * 60 + ss); // Register your `YourFunction`.
 		timerstop.detach(); // this will be non-blocking thread.
 		//timerstop.join(); // this will be blocking thread.
 	}
+
+	snprintf(m_debugMsg, 1024, "Run mode %x", m_SummaryInfo.botmode);
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	switch (m_SummaryInfo.botmode) {
 	case baruokiJumpRopeMode:
@@ -4964,8 +5038,11 @@ Status_Code CAEBot::run()
 		m_resValue = stateHarpoonFishing();
 		break;
 	case captureScreenMode:
-	default:
 		m_resValue = captureScreenNow();
+		break;
+	case idleMode:
+	default:
+		m_resValue = idleNow();
 		break;
 	}
 
@@ -5000,4 +5077,7 @@ int main(int argc, char* argv[])
 		return 0;
 
 	m_bot->run();
+
+	m_bot->SetMode(idleMode);
+	m_bot->idleNow();
 }
