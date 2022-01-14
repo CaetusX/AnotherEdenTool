@@ -865,10 +865,6 @@ bool CAEBot::endBattle()
 	copyPartialPic(partialPic1, 150, 70, 20, 40);
 	bool endBattleResult1 = (getText(partialPic1).compare("Items") == 0);
 
-	/*
-	bool endBattleResult1 = compareImage("Battle End");
-	*/
-
 	copyPartialPic(partialPic2, 400, 70, 660, 80);
 	bool endBattleResult2 = (getText(partialPic2).find("Got") != string::npos);
 
@@ -903,7 +899,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartWorldMap timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
 			return status_Timeout;
 		}
 		else
@@ -933,7 +929,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartMiniMap timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
 			return status_Timeout;
 		}
 		else
@@ -963,7 +959,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartLoadMap timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
 			return status_Timeout;
 		}
 		else
@@ -996,7 +992,7 @@ Status_Code CAEBot::smartDownUp(Direction_Info updownDirection, Direction_Info l
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "smartDownUp timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Detail);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
 			return status_Timeout;
 		}
 		else
@@ -1031,7 +1027,7 @@ Status_Code CAEBot::sleepLoadTime()
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "sleepLoadTime timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Path, debug_Brief);
+			dbgMsg(m_Debug_Type_Path, debug_Alert);
 			return status_Timeout;
 		}
 		else 
@@ -1073,7 +1069,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "walkUntilBattle timeout");
-			dbgMsg(m_Debug_Type_Fighting, debug_Brief);
+			dbgMsg(m_Debug_Type_Fighting, debug_Alert);
 
 			if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("walkUntilBattle_timeout");
 
@@ -1177,7 +1173,7 @@ Status_Code CAEBot::engageMobFightNow()
 			if (timegap > m_Time_Out) // return if timeout
 			{
 				snprintf(m_debugMsg, 1024, "Fight Horror time out");
-				dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+				dbgMsg(m_Debug_Type_Fighting, debug_Alert);
 
 				if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("FightMobTimeout");
 
@@ -1352,7 +1348,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			if (timegap > m_Time_Out) // return if timeout
 			{
 				snprintf(m_debugMsg, 1024, "Fight Horror time out");
-				dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+				dbgMsg(m_Debug_Type_Fighting, debug_Alert);
 
 				if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("FightHorrorTimeout");
 
@@ -2035,7 +2031,7 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Time out pond teleport at [%s]", m_SummaryInfo.currentLocation.c_str());
-			dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+			dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 
 			// time out, something wrong, let's go
 			return status_Timeout;
@@ -2056,7 +2052,7 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Time out fishing spot at [%s]", m_SummaryInfo.currentLocation.c_str());
-			dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+			dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 
 			// time out, something wrong, let's go
 			return status_Timeout;
@@ -2679,7 +2675,7 @@ Status_Code CAEBot::harpoonFunction()
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Time out. Stop harpoon at [%s]", m_SummaryInfo.currentLocation.c_str());
-			dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+			dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 			
 			// time out, something wrong, let's go
 			return status_Timeout;
@@ -2736,7 +2732,7 @@ Status_Code CAEBot::harpoonHorror()
 			if (timegap > m_Time_Out) // return if timeout
 			{
 				snprintf(m_debugMsg, 1024, "Harpoon Horror time out at [%s]", m_SummaryInfo.currentLocation.c_str());
-				dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+				dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 
 				// time out, something wrong, let's go
 				return status_Timeout;
@@ -2844,7 +2840,7 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 				if (timegap > m_Time_Out) // return if timeout
 				{
 					snprintf(m_debugMsg, 1024, "Time out for Trap [%s]", trapRef.c_str());
-					dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+					dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 
 					if (m_IsPrint && m_Debug_Type_Fishing) captureScreenNow("HarpoonTrapFunction timeout result");
 
@@ -2890,7 +2886,7 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	if (!imageresult) // something wrong with trap set up window
 	{
 		snprintf(m_debugMsg, 1024, "Trap [%s] set up window is wrong", trapRef.c_str());
-		dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+		dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 
 		if (m_IsPrint && m_Debug_Type_Fishing) captureScreenNow("HarpoonSetupTrap");
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
@@ -2970,7 +2966,7 @@ Status_Code CAEBot::lomPlatiumSlime()
 			if (m_IsPrint && m_Debug_Type_LOM) captureScreenNow("lomPlatiumSlime");
 
 			snprintf(m_debugMsg, 1024, "lomPlatiumSlime timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_LOM, debug_Brief);
+			dbgMsg(m_Debug_Type_LOM, debug_Alert);
 
 			return status_Timeout;
 		}
@@ -3833,7 +3829,7 @@ Status_Code CAEBot::dailyChroneStone()
 		if (timegap > m_Time_Out) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Daily Chrone Stone result timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
 			return status_Timeout;
 		}
 		else

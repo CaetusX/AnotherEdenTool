@@ -49,7 +49,7 @@ enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
 
 enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_AlphaNumeric };
 
-enum Debug_Level { debug_None = 0, debug_Key, debug_Brief, debug_Detail, debug_Granular };
+enum Debug_Level { debug_None = 0, debug_Key, debug_Alert, debug_Brief, debug_Detail, debug_Granular };
 
 enum Bait_Type { 
 	bait_Fishing_Dango = 0, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, 
