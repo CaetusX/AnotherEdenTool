@@ -212,7 +212,7 @@ void CAEBot::dbgMsg(int debugGroup, Debug_Level debugLevel)
 	if (debugGroup && (debugLevel <= m_Debug_Level))
 	{
 		char debugMsg[1024];
-		snprintf(debugMsg, 1024, "[%s] %s\r\n", timeString(), m_debugMsg);
+		snprintf(debugMsg, 1024, "[%s](%x) %s\r\n", timeString(), m_resValue, m_debugMsg);
 		m_outputMsg.append(debugMsg);
 		cout << debugMsg;
 	}
@@ -332,7 +332,8 @@ string CAEBot::GetSummaryMsg()
 		strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
 		currenttime = time(NULL);
-		int timegap = (int) difftime(currenttime, m_SummaryInfo.startingtime);
+		int timegap;
+		timegap = (int)difftime(currenttime, m_SummaryInfo.startingtime);
 
 		snprintf(summarymsg, 1024, "Total %d loops %d locations running [%dH %dM %dS] from %s\r\nFish caught:\t%d at the current location;\t Total\t%d\r\nMob fought:\t%d at the current location;\t Total\t%d\r\nHorror fought:\t%d at the current location;\t Total\t%d\r\n", 
 			m_SummaryInfo.loopNumber, m_SummaryInfo.locationNumber, timegap / 3600, (timegap / 60) % 60, timegap % 60, timeString,
@@ -370,6 +371,13 @@ string CAEBot::GetSummaryMsg()
 			hh = (m_SummaryInfo.stopTimer.tm_hour + hh - (utc_field.tm_hour + 9) + 48) % 24;
 
 			snprintf(summarymsg, 1024, "Stop in %dH %dM %dS at [JST %02d:%02d:%02d]", hh, mm, ss, m_SummaryInfo.stopTimer.tm_hour, m_SummaryInfo.stopTimer.tm_min, m_SummaryInfo.stopTimer.tm_sec);
+			outputmsg.append(summarymsg);
+		}
+		break;
+	default:
+		if (m_resValue == status_DailyChroneStone)
+		{
+			snprintf(summarymsg, 1024, "Waiting to process daily chrone stone. Please don't move!");
 			outputmsg.append(summarymsg);
 		}
 		break;
@@ -561,8 +569,8 @@ bool CAEBot::compareImage(string imageID)
 			{
 				pair <int, int> iconlocation = findIcon(target_image);
 
-				snprintf(m_debugMsg, 1024, "compareImage %d %d", iconlocation.first, iconlocation.second);
-				dbgMsg(m_Debug_Type_Platform, debug_Detail);
+				snprintf(m_debugMsg, 1024, "compareImage at %d %d", iconlocation.first, iconlocation.second);
+				dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 				copyPartialPic(imagePicCrop, target_w, target_h, (int)(iconlocation.first / m_widthPct), (int)(iconlocation.second / m_heightPct));
 			}
@@ -575,7 +583,7 @@ bool CAEBot::compareImage(string imageID)
 			MSD1 = (MSD1 * MSD1 / target_image.total());
 
 			snprintf(m_debugMsg, 1024, "compareImage %s %f (%d)", imageID.c_str(), MSD1, m_Image_Threshold);
-			dbgMsg(m_Debug_Type_Platform, debug_Detail);
+			dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 			if (MSD1 < lastMSD)
 				lastMSD = MSD1;
@@ -837,12 +845,12 @@ bool CAEBot::inBattle()
 	if (inBattleStatus && inBattleAttack)
 	{
 		snprintf(m_debugMsg, 1024, "in battle %x %x", inBattleStatus, inBattleAttack);
-		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 	else 
 	{
 		snprintf(m_debugMsg, 1024, "not in battle %x %x", inBattleStatus, inBattleAttack);
-		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 
 	return inBattleStatus && inBattleAttack;
@@ -851,13 +859,15 @@ bool CAEBot::inBattle()
 bool CAEBot::endBattle()
 {
 	Mat partialPic1, partialPic2;
+
 	bitBltWholeScreen();
 
-	/*
 	copyPartialPic(partialPic1, 150, 70, 20, 40);
 	bool endBattleResult1 = (getText(partialPic1).compare("Items") == 0);
-	*/
+
+	/*
 	bool endBattleResult1 = compareImage("Battle End");
+	*/
 
 	copyPartialPic(partialPic2, 400, 70, 660, 80);
 	bool endBattleResult2 = (getText(partialPic2).find("Got") != string::npos);
@@ -865,12 +875,12 @@ bool CAEBot::endBattle()
 	if (endBattleResult1 || endBattleResult2)
 	{
 		snprintf(m_debugMsg, 1024, "end battle %x %x", endBattleResult1, endBattleResult2);
-		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 	else
 	{
 		snprintf(m_debugMsg, 1024, "not end battle %x %x", endBattleResult1, endBattleResult2);
-		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 
 	return (endBattleResult1 || endBattleResult2);
@@ -1034,7 +1044,7 @@ Status_Code CAEBot::sleepLoadTime()
 
 Status_Code CAEBot::fightUntilEnd()
 {
-	Sleep(1000);
+	Sleep(m_Slow_Action_Interval);
 
 	if (!inBattle()) // not a fight
 	{
@@ -1053,16 +1063,19 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 	while (!inBattle())
 	{
 		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
+		{
+			Sleep(3000);
 			return m_resValue;
+		}
 
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
 		if (timegap > m_Time_Out) // return if timeout
 		{
-			if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("walkUntilBattle_timeout");
-
-			snprintf(m_debugMsg, 1024, "walkUntilBattle timeout %d", (int) timegap);
+			snprintf(m_debugMsg, 1024, "walkUntilBattle timeout");
 			dbgMsg(m_Debug_Type_Fighting, debug_Brief);
+
+			if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("walkUntilBattle_timeout");
 
 			return status_Timeout;
 		}
@@ -1086,7 +1099,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 		}
 	}
 
-	return fightUntilEnd();
+	return engageMobFightNow();
 }
 
 Status_Code CAEBot::engageMobFightNow()
@@ -1098,9 +1111,6 @@ Status_Code CAEBot::engageMobFightNow()
 	vector<int> lastSkillsRow = { 0, 0, 0, 0 };
 
 	if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("Mob");
-
-	if (!inBattle()) // no fight
-		return status_NotFight;
 
 	snprintf(m_debugMsg, 1024, "Start a battle...");
 	dbgMsg(m_Debug_Type_Fighting, debug_Detail);
@@ -1166,6 +1176,11 @@ Status_Code CAEBot::engageMobFightNow()
 			auto timegap = difftime(currenttime, lastfighttime);
 			if (timegap > m_Time_Out) // return if timeout
 			{
+				snprintf(m_debugMsg, 1024, "Fight Horror time out");
+				dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+
+				if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("FightMobTimeout");
+
 				return status_Timeout;
 			}
 
@@ -1336,6 +1351,11 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			auto timegap = difftime(currenttime, lastfighttime);
 			if (timegap > m_Time_Out) // return if timeout
 			{
+				snprintf(m_debugMsg, 1024, "Fight Horror time out");
+				dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+
+				if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("FightHorrorTimeout");
+
 				return status_Timeout;
 			}
 

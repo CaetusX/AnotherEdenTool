@@ -437,7 +437,6 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
-    bool botEnabled;
 
     switch (message)
     {
@@ -474,6 +473,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_ADDSTRING, 0, LPARAM(&debuglevel));
         }
 
+        bool botEnabled;
         botEnabled = false;
         for (auto i = 0; i < m_AEBot->GetEmulatorNumber(); i++)
         {
@@ -567,12 +567,13 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
     case WM_COMMAND:
         // Parse the menu selections:
-        string str;
-        UINT nCheck, nIndex;
+        UINT nCheck;
 
         switch (LOWORD(wParam))
         {
         case IDC_BUTTON_Refresh:
+            UINT nIndex;
+
             CheckRadioButton(hDlg, IDC_RADIO_Grinding, IDC_RADIO_SeparateGrasta, 0);
             CheckDlgButton(hDlg, IDC_CHECK_FigureEight, 0);
             CheckDlgButton(hDlg, IDC_CHECK_Target999, 0);
@@ -666,7 +667,7 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
         case IDC_RADIO_JumpRopes:
         case IDC_CHECK_FigureEight:
-            nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_FigureEight);
+             nCheck = IsDlgButtonChecked(hDlg, IDC_CHECK_FigureEight);
             if (m_AEBot)
             {
                 if (nCheck)

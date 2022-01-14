@@ -20,34 +20,36 @@ enum Status_Code {
 	status_NoError				= 0x00000000,
 	status_MajorError			= 0x10000000,
 	status_MediumError			= 0x01000000,
-	status_MinorError			= 0x00100000,
+	status_MinorError			= 0x02000000,
 
-	status_WrongEmulator		= 0x10000001,
-	status_Stop					= 0x10000002,
+	status_WrongEmulator		= 0x10010000,
+	status_Stop					= 0x10020000,
 
-	status_DailyChroneStone		= 0x01000001,
+	status_DailyChroneStone		= 0x01040000,
 
-	status_Timeout				= 0x00100001,
-	status_BreakRun				= 0x00100002,
-	status_NoPathFound			= 0x00100003,
+	status_Timeout				= 0x02080000,
+	status_BreakRun				= 0x02100000,
+	status_NoPathFound			= 0x02200000,
 
-	status_NotFight				= 0x00010001, 
-	status_FightFail			= 0x00010002,
+	status_NotFight				= 0x00000001, 
+	status_FightFail			= 0x00000002,
 
-	status_NoFishing			= 0x00011001,
-	status_FishingNoBait		= 0x00011002,
-	status_FishingHorrorMax		= 0x00011003,
-	status_NoHarpoonCatch		= 0x00011101,
-	status_HarpoonCatchFail		= 0x00011102,
-	status_NoHarpoonTrap		= 0x00011103,
-	status_HarpoonTrapWaiting	= 0x00011104,
-	status_HarpoonTrapFail		= 0x00011105
+	status_NoFishing			= 0x00000010,
+	status_FishingNoBait		= 0x00000020,
+	status_FishingHorrorMax		= 0x00000040,
+	status_NoHarpoonCatch		= 0x00000080,
+	status_HarpoonCatchFail		= 0x00000100,
+	status_NoHarpoonTrap		= 0x00000200,
+	status_HarpoonTrapWaiting	= 0x00000400,
+	status_HarpoonTrapFail		= 0x00000800,
+
+	status_UnknownError			= 0x04000000
 };
 enum Grasta_Type { grasta_Attack, grasta_Life, grasta_Support, grasta_Special };
 
 enum OCR_Type { ocr_Alphabetic, ocr_Numeric, ocr_AlphaNumeric };
 
-enum Debug_Level { debug_None = 0, debug_Key, debug_Brief, debug_Detail };
+enum Debug_Level { debug_None = 0, debug_Key, debug_Brief, debug_Detail, debug_Granular };
 
 enum Bait_Type { 
 	bait_Fishing_Dango = 0, bait_Worm, bait_Unexpected_Worm, bait_Shopaholic_Clam, bait_Spree_Snail, bait_Dressed_Crab, bait_Tear_Crab, 
