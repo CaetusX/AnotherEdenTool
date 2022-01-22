@@ -35,8 +35,8 @@ string ocrAlphanumericSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 
 bool m_sharedThreadStop;
 
-void TimerforDailyChronoStone(CAEBot* aebot, int seconds) {
-	std::this_thread::sleep_for(std::chrono::seconds(seconds)); //sleep for given seconds
+void TimerforDailyChronoStone(CAEBot* aebot, int countdownsec, int waitingsec) {
+	std::this_thread::sleep_for(std::chrono::seconds(countdownsec)); //sleep for given seconds
 	//do something...
 	Bot_Mode lastmode;
 	lastmode = aebot->GetMode();
@@ -45,7 +45,7 @@ void TimerforDailyChronoStone(CAEBot* aebot, int seconds) {
 	aebot->SetStatus(status_DailyChroneStone);
 
 	//sleep for 60 seconds so that the previous action fully stops
-	std::this_thread::sleep_for(std::chrono::seconds(60));
+	std::this_thread::sleep_for(std::chrono::seconds(waitingsec));
 
 	Status_Code returnstatus;
 	returnstatus = aebot->dailyChroneStone();
@@ -173,6 +173,10 @@ CAEBot::CAEBot(HWND pParent)
 	m_Fast_Action_Interval = 200;
 	m_Slow_Action_Interval = 5000;
 	m_Walk_Distance_Ratio = 1.0;
+	m_DCS_Waiting = 120;
+	m_DCS_Ad_Loading = 60;
+	m_DCS_Ad_Showing = 90;
+
 	m_Smart_DownUp_Interval = 200;
 	m_Smart_DownUp_Threshold = 700;
 
@@ -1339,8 +1343,11 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			iRun++;
 		}
 
-		lastfighttime = time(NULL);
 
+		snprintf(m_debugMsg, 1024, "After attack");
+		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
+
+		lastfighttime = time(NULL);
 		while (!endBattle())
 		{
 			currenttime = time(NULL);
@@ -3763,10 +3770,10 @@ Status_Code CAEBot::dailyChroneStone()
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
-		if (timegap > m_Time_Out) // return if timeout
+		if (timegap > m_DCS_Timeout) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Daily Chrone Stone timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Key);
 			return status_Timeout;
 		}
 		else
@@ -3775,8 +3782,8 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
-	//wait 30 seconds for ads to fully load
-	Sleep(30000);
+	//wait seconds for ads to fully load
+	Sleep(m_DCS_Ad_Loading * 1000);
 
 	snprintf(m_debugMsg, 1024, "Watch Video");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
@@ -3784,15 +3791,18 @@ Status_Code CAEBot::dailyChroneStone()
 	findclickres = findClick("Watch Video", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
-	startingtime = time(NULL);
 	bool dailyAds = false;
+	startingtime = time(NULL);
 	while (!compareImage("Confirm"))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
-		if (timegap > m_Time_Out) // if ads
+		if (timegap > m_DCS_Ad_Showing) // if ads showing
 		{
 			dailyAds = true;
+
+			snprintf(m_debugMsg, 1024, "It should be a video Ad");
+			dbgMsg(m_Debug_Type_Platform, debug_Key);
 		}
 		else
 		{
@@ -3800,14 +3810,14 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
-	snprintf(m_debugMsg, 1024, "Confirm with dailyAds %x", dailyAds);
+	snprintf(m_debugMsg, 1024, "Confirm with Daily Chrone Stone %x", dailyAds);
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	if (dailyAds)
 	{
-		leftClick(1698, 48);
+		leftClick(m_Button_AdsClose);
 		Sleep(10000);
-		leftClick(1698, 48);
+		leftClick(m_Button_AdsClose);
 	}
 	else
 	{
@@ -3817,6 +3827,23 @@ Status_Code CAEBot::dailyChroneStone()
 
 	snprintf(m_debugMsg, 1024, "to click confirm");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+	startingtime = time(NULL);
+	while (!compareImage("OK"))
+	{
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_DCS_Ad_Showing) // if ads showing
+		{
+			snprintf(m_debugMsg, 1024, "Daily Chrone Stone ok timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(1000);
+		}
+	}
 
 	findclickres = findClick("OK", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
@@ -3838,7 +3865,7 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
-	snprintf(m_debugMsg, 1024, "fully loaded");
+	snprintf(m_debugMsg, 1024, "Daily Chrone Stone completed");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	return status_NoError;
@@ -4326,6 +4353,27 @@ void CAEBot::loadSettingConfig()
 				m_Debug_Level = (Debug_Level)stoi(value);
 		}
 
+		/******************************/
+		/* Daily Chrone Stone section */
+		/******************************/
+		else if (key.compare("DCS Waiting Time") == 0)
+		{
+			m_DCS_Waiting = stoi(value);
+		}
+		else if (key.compare("DCS Time Out") == 0)
+		{
+			m_DCS_Timeout = stoi(value);
+		}
+		else if (key.compare("DCS Ad Loading Time") == 0)
+		{
+			m_DCS_Ad_Loading = stoi(value);
+		}
+		else if (key.compare("DCS Ad Showing Time") == 0)
+		{
+			m_DCS_Ad_Showing = stoi(value);
+		}
+
+
 		/********************/
 		/* Grinding section */
 		/********************/
@@ -4568,6 +4616,10 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("PassThrough") == 0)
 		{
 			m_Button_PassThrough = parseXYinfo(value);
+		}
+		else if (key.compare("AdsCloseButton") == 0)
+		{
+			m_Button_AdsClose = parseXYinfo(value);
 		}
 		else if (key.compare("CharactersButtons") == 0)
 		{
@@ -5010,7 +5062,7 @@ Status_Code CAEBot::run()
 		dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 		//need to stop before the daily chrono stone at 00:00:00 UTC + 9
-		std::thread timerstop(TimerforDailyChronoStone, this, (hh * 60 + mm) * 60 + ss); // Register your `YourFunction`.
+		std::thread timerstop(TimerforDailyChronoStone, this, (hh * 60 + mm) * 60 + ss, m_DCS_Waiting); // Register your call back function.
 		timerstop.detach(); // this will be non-blocking thread.
 		//timerstop.join(); // this will be blocking thread.
 	}

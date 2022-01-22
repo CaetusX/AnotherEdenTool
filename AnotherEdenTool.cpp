@@ -35,10 +35,12 @@ HWND m_hInfoBox;
 #define FISHING_TYPE_NUMBER 2
 
 #define DEBUG_SUMMARY 0
-#define DEBUG_KEY 1
-#define DEBUG_BRIEF 2
-#define DEBUG_DETAIL 3
-#define DEBUG_LEVEL_NUMBER 4
+#define DEBUG_ALERT 1
+#define DEBUG_KEY 2
+#define DEBUG_BRIEF 3
+#define DEBUG_DETAIL 4
+#define DEBUG_GRANULAR 5
+#define DEBUG_LEVEL_NUMBER 6
 
 string m_grindingType[GRINDING_TYPE_NUMBER] =
 {
@@ -52,7 +54,7 @@ string m_Fishing_Type[FISHING_TYPE_NUMBER] =
 
 string m_debugLevel[DEBUG_LEVEL_NUMBER] =
 {
-    "Summary", "Key Message", "Brief Message", "Detail Message"
+    "Summary", "Alert", "Key Message", "Brief Message", "Detail", "Granular"
 };
 
 void AEBotTimerThread(int n)

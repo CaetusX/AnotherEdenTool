@@ -272,6 +272,7 @@ private:
 	pair<int, int> m_Button_SpacetimeRift;
 	pair<int, int> m_Button_Tree;
 	pair<int, int> m_Button_PassThrough;
+	pair<int, int> m_Button_AdsClose;
 
 	vector<vector<int>> m_Skill_HorrorSet;
 	vector<vector<int>> m_Skill_MobSet;
@@ -287,6 +288,12 @@ private:
 	int m_Action_Interval;
 	int m_Fast_Action_Interval;
 	int m_Slow_Action_Interval;
+
+	int m_DCS_Waiting;
+	int m_DCS_Timeout;
+	int m_DCS_Ad_Loading;
+	int m_DCS_Ad_Showing;
+
 	int m_Smart_DownUp_Interval;
 	int m_Smart_DownUp_Threshold;
 
