@@ -33,10 +33,27 @@ string ocrNumericSet = "1234567890,";
 string ocrAlphabeticSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.'()-";
 string ocrAlphanumericSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890,.'()-";
 
-bool m_sharedThreadStop;
+CAEBot* m_sharedThreadAEBot;
+bool m_sharedThreadAEmutex;
 
 void TimerforDailyChronoStone(CAEBot* aebot, int countdownsec, int waitingsec) {
+	if (! m_sharedThreadAEmutex)
+	{
+		return;
+	}
+	else 
+	{
+		m_sharedThreadAEmutex = false;
+	}
+
+	if (m_sharedThreadAEBot == NULL)
+		return;
+
+	if (m_sharedThreadAEBot != aebot)
+		return;
+
 	std::this_thread::sleep_for(std::chrono::seconds(countdownsec)); //sleep for given seconds
+
 	//do something...
 	Bot_Mode lastmode;
 	lastmode = aebot->GetMode();
@@ -52,6 +69,8 @@ void TimerforDailyChronoStone(CAEBot* aebot, int countdownsec, int waitingsec) {
 
 	if (returnstatus == status_NoError)
 	{
+		m_sharedThreadAEmutex = true;
+
 		aebot->SetMode(lastmode);
 		aebot->run();
 	}
@@ -191,11 +210,12 @@ CAEBot::CAEBot(HWND pParent)
 	m_SummaryInfo.totalHorrorFought = 0;
 	m_SummaryInfo.currentLocation = "Local";
 
+	m_sharedThreadAEmutex = true;
 }
 
 CAEBot::~CAEBot()
 {
-
+	m_sharedThreadAEBot = NULL;
 }
 
 void CAEBot::SetStatus(Status_Code statusCode)
@@ -3853,7 +3873,7 @@ Status_Code CAEBot::dailyChroneStone()
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
-		if (timegap > m_Time_Out) // return if timeout
+		if (timegap > m_DCS_Ad_Showing) // return if timeout
 		{
 			snprintf(m_debugMsg, 1024, "Daily Chrone Stone result timeout %d", (int)timegap);
 			dbgMsg(m_Debug_Type_Platform, debug_Alert);
@@ -5024,7 +5044,7 @@ Status_Code CAEBot::run()
 	m_SummaryInfo.currentLocation = "Local";
 	m_SummaryInfo.startingtime = time(NULL);
 
-	m_sharedThreadStop = false;
+	m_sharedThreadAEBot = this;
 
 	if (m_SummaryInfo.isStopTimer)
 	{
