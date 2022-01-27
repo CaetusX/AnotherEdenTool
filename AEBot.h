@@ -5,6 +5,8 @@ using namespace cv;
 using namespace std;
 using namespace cv::text;
 
+#define MAX_STRING_LENGTH 256
+
 enum Bot_Mode { initialMode, 
 	grindingEndlessMode, grindingTravelMode, grindingStationMode, grindingLOMSlimeMode, 
 	fishingAnglerMode, fishingHarpoonMode, 
@@ -182,7 +184,7 @@ private:
 
 	int m_CurrentGrindingCounter;
 
-	char m_debugMsg[1024];
+	char m_debugMsg[MAX_STRING_LENGTH];
 	char m_timeString[80];
 	string m_outputMsg;
 

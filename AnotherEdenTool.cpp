@@ -9,10 +9,10 @@
 #define IDT_TIMER1 1001
 
 // Global Variables:
-HINSTANCE m_hInst;                                // current instance
-TCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-TCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-TCHAR strFormat[1024]; // Must ensure size!
+HINSTANCE m_hInst;                          // current instance
+TCHAR szTitle[MAX_LOADSTRING];              // The title bar text
+TCHAR szWindowClass[MAX_LOADSTRING];        // the main window class name
+TCHAR strFormat[1024];                      // Must ensure size!
 
 HWND m_hWnd;
 CAEBot* m_AEBot=NULL;
@@ -475,6 +475,10 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SendDlgItemMessage(hDlg, IDC_COMBO_DebugLevel, CB_ADDSTRING, 0, LPARAM(&debuglevel));
         }
 
+        HWND htext;
+        htext = GetDlgItem(hDlg, IDC_InfoText);
+        SendMessage(htext, EM_SETLIMITTEXT, 0, 0);
+
         bool botEnabled;
         botEnabled = false;
         for (auto i = 0; i < m_AEBot->GetEmulatorNumber(); i++)
@@ -554,8 +558,10 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
                         debugmsg = m_AEBot->GetOutputMsg();
                         if (debugmsg.size() > 0)
                         {
-                            HWND htext = GetDlgItem(hDlg, IDC_InfoText);
-                            int currentlength = GetWindowTextLength(htext);
+                            HWND htext;
+                            htext = GetDlgItem(hDlg, IDC_InfoText);
+                            int currentlength;
+                            currentlength = GetWindowTextLength(htext);
                             SendMessage(htext, EM_SETSEL, (WPARAM)currentlength, (LPARAM)currentlength);
                             SendMessage(htext, EM_REPLACESEL, 0, (LPARAM)(debugmsg.c_str()));
                         }
