@@ -3850,7 +3850,7 @@ Status_Code CAEBot::dailyChroneStone()
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	startingtime = time(NULL);
-	while (!compareImage("OK"))
+	while (!compareImage("Confirm"))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -3866,7 +3866,7 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
-	findclickres = findClick("OK", 0, 0, 0, 0);
+	findclickres = findClick("Confirm", 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	startingtime = time(NULL);
