@@ -651,7 +651,7 @@ pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows,
 			MSD1 = (MSD1 * MSD1 / target_image.total());
 
 			snprintf(m_debugMsg, MAX_STRING_LENGTH, "findclick %s [%d %d] %f (%d)", imageID.c_str(), iconLoc.first, iconLoc.second, MSD1, m_Image_Threshold);
-			dbgMsg(m_Debug_Type_Platform, debug_Brief);
+			dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 			if (MSD1 < lastMSD)
 			{
@@ -681,7 +681,7 @@ void CAEBot::leftClick(int x, int y, int sTime, bool changeLoc)
 	}
 
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "LeftClick %d %d", x, y);
-	dbgMsg(m_Debug_Type_Platform, debug_Detail);
+	dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 	SendMessage(m_window, WM_MOUSEACTIVATE, 0, MAKELPARAM(HTCLIENT, WM_LBUTTONDOWN));
 	SendMessage(m_window, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
@@ -705,7 +705,7 @@ void CAEBot::leftClick(pair<int, int>& coord, int sTime)
 void CAEBot::drag(Direction_Info botDirection, int slideDistance, int xStart, int yStart, int sleepTime, int scrollRatio)
 {
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "drag %d %d %d %d", botDirection, slideDistance, xStart, yStart);
-	dbgMsg(m_Debug_Type_Platform, debug_Detail);
+	dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 	xStart = (int)round(xStart * m_widthPct);
 	yStart = (int)round(yStart * m_heightPct);
@@ -803,7 +803,7 @@ void CAEBot::walk(Direction_Info botDirection, int time, int sleepTime)
 		time = slideDistance;
 
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "walk %d %d %d", botDirection, time, sleepTime);
-	dbgMsg(m_Debug_Type_Platform, debug_Detail);
+	dbgMsg(m_Debug_Type_Platform, debug_Granular);
 
 	//Start walking left
 	SendMessage(m_window, WM_MOUSEACTIVATE, 0, MAKELPARAM(HTCLIENT, WM_LBUTTONDOWN));
