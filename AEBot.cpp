@@ -282,7 +282,10 @@ Debug_Level CAEBot::GetDebugLevel()
 
 void CAEBot::SetDebugLevel(Debug_Level debuglevel)
 {
-	m_Debug_Level = debuglevel;
+	if (debuglevel < debug_MAX)
+		m_Debug_Level = debuglevel;
+	else
+		m_Debug_Level = Debug_Level ((int)debug_MAX - 1);
 }
 
 string CAEBot::GetOutputMsg()
@@ -3806,15 +3809,17 @@ Status_Code CAEBot::dailyChroneStone()
 	//wait seconds for ads to fully load
 	Sleep(m_DCS_Ad_Loading * 1000);
 
+	findclickres = findClick("Watch Video", 1222, 580, 260, 198);
+	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+
+	Sleep(5000);
+
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Watch Video");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
-	findclickres = findClick("Watch Video", 0, 0, 0, 0);
-	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
-
 	bool dailyAds = false;
 	startingtime = time(NULL);
-	while (!compareImage("Confirm"))
+	while (!compareImage("Close"))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -3842,15 +3847,17 @@ Status_Code CAEBot::dailyChroneStone()
 	}
 	else
 	{
-		findclickres = findClick("Confirm", 0, 0, 0, 0);
+		findclickres = findClick("Close", 1130, 390, 310, 570);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 
-	snprintf(m_debugMsg, MAX_STRING_LENGTH, "to click confirm");
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "before click thank you");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
+	Sleep(5000);
+
 	startingtime = time(NULL);
-	while (!compareImage("Confirm"))
+	while (!compareImage("OK"))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -3866,8 +3873,13 @@ Status_Code CAEBot::dailyChroneStone()
 		}
 	}
 
-	findclickres = findClick("Confirm", 0, 0, 0, 0);
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "before click ok");
+	dbgMsg(m_Debug_Type_Platform, debug_Key);
+
+	findclickres = findClick("OK", 1080, 470, 330, 260);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+
+	Sleep(5000);
 
 	startingtime = time(NULL);
 	while (!compareImage("Menu"))
@@ -4368,11 +4380,11 @@ void CAEBot::loadSettingConfig()
 		}
 		else if (key.compare("Debug Level") == 0)
 		{
-			if (stoi(value) > debug_Detail)
-				m_Debug_Level = debug_Detail;
-			else
+			if (stoi(value) < debug_MAX)
 				m_Debug_Level = (Debug_Level)stoi(value);
-		}
+			else
+				m_Debug_Level = Debug_Level((int)debug_MAX - 1);
+			}
 
 		/******************************/
 		/* Daily Chrone Stone section */

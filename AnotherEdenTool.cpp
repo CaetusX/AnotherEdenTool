@@ -181,14 +181,14 @@ void Interface_fishing(HWND hDlg)
         {
         case FISHING_HARPOON:
             m_AEBot->SetMode(fishingHarpoonMode);
-            wsprintf(strFormat, _T("Harpoon Fishing mode.\r\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
+            wsprintf(strFormat, _T("Harpoon Fishing mode.\r\nYou can start anywhere\r\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
         default:
             SendDlgItemMessage(hDlg, IDC_COMBO_FishingType, CB_SETCURSEL, FISHING_ANGLER, 0);
         case FISHING_ANGLER:
             m_AEBot->SetMode(fishingAnglerMode);
-            wsprintf(strFormat, _T("Fishing mode.\r\nYou can start anywhere\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
+            wsprintf(strFormat, _T("Fishing mode.\r\nYou can start anywhere\r\nPlease config where to fish and what bait to use in config_fishing file\r\n"));
             SetWindowText(GetDlgItem(hDlg, IDC_InfoText), strFormat);
             break;
         }
@@ -736,6 +736,15 @@ INT_PTR CALLBACK AEToolBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARA
             {
             case CBN_SELCHANGE:
                 Interface_Grinding(hDlg);
+                break;
+            }
+            break;
+
+        case IDC_COMBO_FishingType:
+            switch (HIWORD(wParam))
+            {
+            case CBN_SELCHANGE:
+                Interface_fishing(hDlg);
                 break;
             }
             break;
