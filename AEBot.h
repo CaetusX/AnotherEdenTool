@@ -365,7 +365,7 @@ private:
 	pair<int, int> findIconInRegion(Mat& tmp, int cols, int rows, int x, int y);
 	imageInfo retrieveImage(string imageID);
 	bool compareImage(string imageID);
-	pair<bool, pair<int, int>> findClick(string imageID, int cols, int rows, int x, int y);
+	pair<bool, pair<int, int>> findClick(string imageID, bool knownlocation, int cols, int rows, int x, int y);
 
 	void leftClick(int x, int y, bool changeLoc = true);
 	void leftClick(int x, int y, int sTime, bool changeLoc = true);

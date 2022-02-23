@@ -621,7 +621,7 @@ bool CAEBot::compareImage(string imageID)
 	return (lastMSD < m_Image_Threshold);
 }
 
-pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows, int x, int y)
+pair<bool, pair<int, int>> CAEBot::findClick(string imageID, bool knownlocation, int cols, int rows, int x, int y)
 {
 	int target_w, target_h, target_x, target_y;
 	Mat target_image, imagePicCrop;
@@ -643,12 +643,22 @@ pair<bool, pair<int, int>> CAEBot::findClick(string imageID, int cols, int rows,
 			target_h = m_DynamicImage[k].height;
 
 			pair<int, int> iconLoc;
-			if (cols == 0 || rows == 0)
-				iconLoc = findIcon(target_image);
-			else
-				iconLoc = findIconInRegion(target_image, cols, rows, x, y);
 
-			copyPartialPic(imagePicCrop, target_w, target_h, (int)(iconLoc.first / m_widthPct), (int)(iconLoc.second / m_heightPct)); //
+			if (knownlocation)
+			{
+				copyPartialPic(imagePicCrop, target_w, target_h, target_x, target_y); //known location
+				iconLoc.first =  int (target_x * m_widthPct);
+				iconLoc.second = int (target_y * m_heightPct);
+			}
+			else
+			{
+				if (cols == 0 || rows == 0)
+					iconLoc = findIcon(target_image);
+				else
+					iconLoc = findIconInRegion(target_image, cols, rows, x, y);
+
+				copyPartialPic(imagePicCrop, target_w, target_h, (int)(iconLoc.first / m_widthPct), (int)(iconLoc.second / m_heightPct)); //search result
+			}
 
 			double MSD1 = cv::norm(target_image, imagePicCrop);
 			MSD1 = (MSD1 * MSD1 / target_image.total());
@@ -1972,7 +1982,7 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 			}
 		}
 		else if (curType.compare("Find") == 0) {
-			pair<bool, pair <int, int>> findclickres = findClick(curValue1, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+			pair<bool, pair <int, int>> findclickres = findClick(curValue1, false, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 		}
 		else if (curType.compare("Fight") == 0) {
@@ -2071,7 +2081,7 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 		Sleep(500);
 	}
 
-	findclickres = findClick("PondTeleport", 0, 0, 0, 0);
+	findclickres = findClick("PondTeleport", false, 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	startingtime = time(NULL);
@@ -2115,7 +2125,7 @@ Status_Code CAEBot::goToFishingLocation(string targetlocation)
 			txt2 = ocrPicture(ocr_Alphabetic, 560, 60, 840, 105 + i * 164);
 		else
 		{
-			findclickres = findClick("AreaFishing", (int)M_WIDTH, 280, 0, 670);
+			findclickres = findClick("AreaFishing", false, (int)M_WIDTH, 280, 0, 670);
 			// why -20? AreaFishing is 96 x 96, there is a gap of 28 from the top of AreaFishing to the top of the words
 			txt2 = ocrPicture(ocr_Alphabetic, 560, 60, 840, (int) (findclickres.second.second / m_heightPct - 30) );
 		}
@@ -2585,12 +2595,12 @@ void CAEBot::fishIconClickFunction()
 	//In Man Eating Swamp, any battle shifts your position, so the fish icon location must be found again
 	if (m_SummaryInfo.currentLocation.compare("Kira Beach") == 0 || m_SummaryInfo.currentLocation.compare("Last Island") == 0)
 	{
-		pair<bool, pair<int, int>> findclickres = findClick("FishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+		pair<bool, pair<int, int>> findclickres = findClick("FishIcon", false, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 	else if (m_SummaryInfo.currentLocation.compare("Man-Eating Swamp") == 0)
 	{
-		pair<bool, pair<int, int>> findclickres = findClick("SwampFishIcon", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+		pair<bool, pair<int, int>> findclickres = findClick("SwampFishIcon", false, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 	else
@@ -2612,7 +2622,7 @@ Status_Code CAEBot::harpoonFunction()
 
 	pair<bool, pair <int, int>> findclickres;
 	
-	findclickres = findClick("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
+	findclickres = findClick("HarpoonFish", false, (int)M_WIDTH, 200, 0, 240);
 	harpoonfish = findclickres.second;
 
 	if (m_Harpoon_MassShooting)
@@ -2669,7 +2679,7 @@ Status_Code CAEBot::harpoonFunction()
 			return status_BreakRun;
 		}
 
-		findclickres = findClick("HarpoonFish", (int)M_WIDTH, 200, 0, 240);
+		findclickres = findClick("HarpoonFish", false, (int)M_WIDTH, 200, 0, 240);
 		harpoonfish = findclickres.second;
 
 		//snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon fish attempt [%d] %d %d....", counter + 1, harpoonfish.first, harpoonfish.second);
@@ -2740,7 +2750,7 @@ Status_Code CAEBot::harpoonHorror()
 	}
 	else
 	{
-		findclickres = findClick("HarpoonHorror", 1545, 500, 100, 50);
+		findclickres = findClick("HarpoonHorror", false, 1545, 500, 100, 50);
 		harpoonhorror = findclickres.second;
 
 		if (findclickres.first &&
@@ -2822,12 +2832,12 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	if (m_Harpoon_MassShooting)
 		return status_NoHarpoonTrap;
 
-	findclickres = findClick("HarpoonTrap", (int)M_WIDTH, (int) 440, 0, (int) 160);
+	findclickres = findClick("HarpoonTrap", false, (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findclicktrap = findclickres.second;
 
 	leftClick(findclicktrap.first, findclicktrap.second, m_Action_Interval, false);
 
-	findclickres = findClick("HarpoonTrapLarge", (int)M_WIDTH, (int) 440, 0, (int) 160);
+	findclickres = findClick("HarpoonTrapLarge", false, (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findtraplarge = findclickres.first;
 	findclicktraplarge = findclickres.second;
 
@@ -3471,7 +3481,7 @@ Status_Code CAEBot::stateSeparateGrasta()
 			leftClick(m_Button_X);
 
 
-			pair<bool, pair<int, int>> findclickres = findClick("ExclamationGrasta", (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
+			pair<bool, pair<int, int>> findclickres = findClick("ExclamationGrasta", false, (int)M_WIDTH, (int)M_ABOVE_MENU, 0, 0);
 			leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 			leftClick(m_Grasta_Button[Grasta_Action_Separate].xyPosition);
@@ -3790,7 +3800,7 @@ Status_Code CAEBot::dailyChroneStone()
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
 	startingtime = time(NULL);
-	while (!compareImage("Watch Video"))
+	while ( !(compareImage("Watch Video") && compareImage("Watch NoVideo")) )
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -3809,7 +3819,7 @@ Status_Code CAEBot::dailyChroneStone()
 	//wait seconds for ads to fully load
 	Sleep(m_DCS_Ad_Loading * 1000);
 
-	findclickres = findClick("Watch Video", 1222, 580, 260, 198);
+	findclickres = findClick("Watch Video", true, 0, 0, 0, 0);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	Sleep(5000);
@@ -3847,7 +3857,7 @@ Status_Code CAEBot::dailyChroneStone()
 	}
 	else
 	{
-		findclickres = findClick("Close", 1130, 390, 310, 570);
+		findclickres = findClick("Close", false, 1130, 390, 310, 570);
 		leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 	}
 
@@ -3876,7 +3886,7 @@ Status_Code CAEBot::dailyChroneStone()
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "before click ok");
 	dbgMsg(m_Debug_Type_Platform, debug_Key);
 
-	findclickres = findClick("OK", 1080, 470, 330, 260);
+	findclickres = findClick("OK", false, 1080, 470, 330, 260);
 	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
 
 	Sleep(5000);
