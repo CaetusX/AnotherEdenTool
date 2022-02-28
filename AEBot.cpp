@@ -868,7 +868,27 @@ void CAEBot::walk(Direction_Info botDirection, int time, int sleepTime)
 	Sleep(sleepTime);
 }
 
-bool CAEBot::inBattle()
+bool CAEBot::is_MainReady()
+{
+	bool mainMain = compareImage("Main Menu");
+	bool mainQuests = compareImage("Main Quests");
+	bool mainMap = compareImage("Main Map");
+
+	if (mainMain && mainQuests && mainMap)
+	{
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel ready %x %x %x", mainMain, mainQuests, mainMap);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
+	}
+	else
+	{
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel not ready %x %x %x", mainMain, mainQuests, mainMap);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
+	}
+
+	return (mainMain && mainQuests && mainMap);
+}
+
+bool CAEBot::is_InBattle()
 {
 	/*
 	Mat partialPic;
@@ -894,7 +914,7 @@ bool CAEBot::inBattle()
 	return inBattleStatus && inBattleAttack;
 }
 
-bool CAEBot::endBattle()
+bool CAEBot::is_EndBattle()
 {
 	Mat partialPic1, partialPic2;
 
@@ -1017,7 +1037,7 @@ Status_Code CAEBot::smartDownUp(Direction_Info updownDirection, Direction_Info l
 
 	walk(updownDirection, 100, m_Smart_DownUp_Interval);
 
-	while(compareImage("Menu"))
+	while(is_MainReady())
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -1055,7 +1075,7 @@ Status_Code CAEBot::sleepLoadTime()
 	time_t currenttime, startingtime;
 	startingtime = time(NULL);
 
-	while (!compareImage("Menu"))
+	while (!is_MainReady())
 	{
 		if (checkStatus(status_MajorError))
 			return m_resValue;
@@ -1080,7 +1100,7 @@ Status_Code CAEBot::fightUntilEnd()
 {
 	Sleep(m_Slow_Action_Interval);
 
-	if (!inBattle()) // not a fight
+	if (!is_InBattle()) // not a fight
 	{
 		return status_NotFight;
 	}
@@ -1094,7 +1114,7 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 
 	startingtime = time(NULL);
 
-	while (!inBattle())
+	while (!is_InBattle())
 	{
 		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 		{
@@ -1204,7 +1224,7 @@ Status_Code CAEBot::engageMobFightNow()
 		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
 		lastfighttime = time(NULL);
-		while (!endBattle())
+		while (!is_EndBattle())
 		{
 			currenttime = time(NULL);
 			auto timegap = difftime(currenttime, lastfighttime);
@@ -1218,7 +1238,7 @@ Status_Code CAEBot::engageMobFightNow()
 				return status_Timeout;
 			}
 
-			if (inBattle())
+			if (is_InBattle())
 			{
 				break;
 			}
@@ -1227,7 +1247,7 @@ Status_Code CAEBot::engageMobFightNow()
 		}
 
 		iRun++;
-	} while (inBattle());
+	} while (is_InBattle());
 
 	m_SummaryInfo.runMobFought = m_SummaryInfo.runMobFought + 1;
 	m_SummaryInfo.totalMobFought = m_SummaryInfo.totalMobFought + 1;
@@ -1257,7 +1277,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 
 	Sleep(m_Action_Interval);
 
-	if (!inBattle()) // not horror
+	if (!is_InBattle()) // not horror
 	{
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
 		return status_NotFight;
@@ -1382,7 +1402,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
 		lastfighttime = time(NULL);
-		while (!endBattle())
+		while (!is_EndBattle())
 		{
 			currenttime = time(NULL);
 			auto timegap = difftime(currenttime, lastfighttime);
@@ -1396,7 +1416,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 				return status_Timeout;
 			}
 
-			if (inBattle())
+			if (is_InBattle())
 			{
 				break;
 			}
@@ -1404,7 +1424,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 			Sleep(500);
 		}
 
-	} while (inBattle());
+	} while (is_InBattle());
 
 	if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("Result");
 
@@ -1585,7 +1605,7 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 					{
 						Sleep(5000); //Give ample time for battle to fully load
 
-						if (inBattle()) // double check whether it is a battle
+						if (is_InBattle()) // double check whether it is a battle
 						{
 							if (m_Fishing_HasHorror) //Its possibly a horror or lakelord, so need to check to make sure before trying to auto it down
 							{
@@ -2745,7 +2765,7 @@ Status_Code CAEBot::harpoonHorror()
 	{
 		harpoonMassShooting();
 
-		if (inBattle())
+		if (is_InBattle())
 			foundHorror = true;
 	}
 	else
@@ -2766,7 +2786,7 @@ Status_Code CAEBot::harpoonHorror()
 		leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
 
 		startingtime = time(NULL);
-		while (!inBattle())
+		while (!is_InBattle())
 		{
 			currenttime = time(NULL);
 			auto timegap = difftime(currenttime, startingtime);
@@ -3549,7 +3569,7 @@ Status_Code CAEBot::grindingRun(bool endlessGrinding, int forcetimeout)
 		if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 			return m_resValue;
 
-		while (!inBattle())
+		while (!is_InBattle())
 		{
 			if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 				return m_resValue;
@@ -3892,7 +3912,7 @@ Status_Code CAEBot::dailyChroneStone()
 	Sleep(5000);
 
 	startingtime = time(NULL);
-	while (!compareImage("Menu"))
+	while (!is_MainReady())
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);

@@ -375,8 +375,9 @@ private:
 	void dragMap(Direction_Info botDirection, int slideDistance);
 	void walk(Direction_Info botDirection, int time);
 	void walk(Direction_Info botDirection, int time, int sleepTime);
-	bool inBattle();
-	bool endBattle();
+	bool is_MainReady();
+	bool is_InBattle();
+	bool is_EndBattle();
 
 	Status_Code smartWorldMap(pair<int, int>& coord);
 	Status_Code smartMiniMap(pair<int, int>& coord);
