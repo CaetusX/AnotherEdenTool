@@ -3849,7 +3849,7 @@ Status_Code CAEBot::dailyChroneStone()
 
 	bool dailyAds = false;
 	startingtime = time(NULL);
-	while (!compareImage("Close"))
+	while (!(compareImage("Close") && compareImage("Aldo Feinne")))
 	{
 		currenttime = time(NULL);
 		auto timegap = difftime(currenttime, startingtime);
@@ -3859,6 +3859,7 @@ Status_Code CAEBot::dailyChroneStone()
 
 			snprintf(m_debugMsg, MAX_STRING_LENGTH, "It should be a video Ad");
 			dbgMsg(m_Debug_Type_Platform, debug_Key);
+			break;
 		}
 		else
 		{
