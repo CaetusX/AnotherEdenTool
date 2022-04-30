@@ -945,7 +945,7 @@ Status_Code CAEBot::smartWorldMap(pair<int, int>& coord)
 	time_t currenttime, startingtime;
 	startingtime = time(NULL);
 
-	leftClick(coord, 500);
+	leftClick(coord, m_Action_Interval);
 
 	while (!compareImage("TopTitleBar") && !compareImage("Map Title Bar"))
 	{
@@ -975,7 +975,7 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 	time_t currenttime, startingtime;
 	startingtime = time(NULL);
 
-	leftClick(coord, 500);
+	leftClick(coord, m_Action_Interval);
 
 	while (!compareImage("Mini Map X") && !compareImage("Map Title Bar"))
 	{
@@ -1005,7 +1005,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 	time_t currenttime, startingtime;
 	startingtime = time(NULL);
 
-	leftClick(coord, 500);
+	leftClick(coord, m_Action_Interval);
 
 	while (!compareImage("Confirm"))
 	{
@@ -1025,7 +1025,7 @@ Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
 			Sleep(500);
 		}
 	}
-	leftClick(m_Button_Yes, 500);
+	leftClick(m_Button_Yes, m_Action_Interval);
 
 	return sleepLoadTime();
 }
@@ -1218,7 +1218,7 @@ Status_Code CAEBot::engageMobFightNow()
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "[%d] Ready to attack with %x %x %x %x", m_CurrentGrindingCounter, lastSkillsRow[0], lastSkillsRow[1], lastSkillsRow[2], lastSkillsRow[3]);
 		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
-		leftClick(m_Button_Attack, 500);
+		leftClick(m_Button_Attack, m_Action_Interval);
 
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "After attack");
 		dbgMsg(m_Debug_Type_Fighting, debug_Detail);
@@ -1371,19 +1371,19 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 					break;
 				}
 
-				leftClick(m_Button_Characters[j].xyPosition, 500);
+				leftClick(m_Button_Characters[j].xyPosition, m_Action_Interval);
 				if (iSkill == m_Skill_Exchange_A || iSkill == m_Skill_Exchange_B)
 				{
-					leftClick(m_Button_Skills[m_Skill_Exchange].xyPosition, 500);
-					leftClick(m_Button_Characters[iSkill - m_Skill_Exchange + m_CharacterFrontline].xyPosition, 500);
+					leftClick(m_Button_Skills[m_Skill_Exchange].xyPosition, m_Action_Interval);
+					leftClick(m_Button_Characters[iSkill - m_Skill_Exchange + m_CharacterFrontline].xyPosition, m_Action_Interval);
 				}
 				else
-					leftClick(m_Button_Skills[iSkill].xyPosition, 500);
+					leftClick(m_Button_Skills[iSkill].xyPosition, m_Action_Interval);
 
 				// Click normal skill in case the skill is blocked
-				leftClick(m_Button_Skills[0].xyPosition, 500);
+				leftClick(m_Button_Skills[0].xyPosition, m_Action_Interval);
 				// Click front buttom in case someone is defeated
-				//leftClick(m_Button_Skills[4].xyPosition, 500;
+				//leftClick(m_Button_Skills[4].xyPosition, m_Action_Interval);
 				// Click somewhere else in case someone is disabled
 				leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
 			}
@@ -1393,7 +1393,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 				continue;
 			}
 
-			leftClick(m_Button_Attack, 500); // Fight Horror
+			leftClick(m_Button_Attack, m_Action_Interval); // Fight Horror
 			iRun++;
 		}
 
@@ -2988,11 +2988,11 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	for (int j = (int) availablebaits.size() ; j > 0 ; j--)
 	{
 		// choose the bottom most bait, 792, 636, 480, 324
-		leftClick(780, 324 + (j - 1) * 156, 1000);
+		leftClick(780, 324 + (j - 1) * 156, m_Action_Interval);
 	}
 
 	// choose the top most bait just in case
-	leftClick(780, 324, 1000);
+	leftClick(780, 324, m_Action_Interval);
 
 	//click to set up the trap
 	leftClick(580, 880);
