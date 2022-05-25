@@ -339,11 +339,10 @@ private:
 	vector<imageInfo> m_DynamicImage;
 
 	vector<locationInfo> m_LocationList;
-	vector<pair<string, int>> m_Grinding_Spots;
+	vector<pair<string, int>> m_Grinding_Travel_Spots;
+	vector<pair<string, int>> m_Grinding_Station_Spots;
 	vector<fishingSpot> m_Fishing_Spots;
 	vector<pair<string, int>> m_Harpoon_Spots; //string is the harpoon location name, int is the order
-
-	locationInfo m_Grinding_StationSpot;
 
 	pair<int, int> m_CurrentFishIconLoc;
 

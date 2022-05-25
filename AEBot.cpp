@@ -3643,11 +3643,11 @@ Status_Code CAEBot::stateTravelGrinding()
 
 		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
-		for (auto i = 0; i < m_Grinding_Spots.size(); i++)
+		for (auto i = 0; i < m_Grinding_Travel_Spots.size(); i++)
 		{
-			m_SummaryInfo.currentLocation = m_Grinding_Spots[i].first;
+			m_SummaryInfo.currentLocation = m_Grinding_Travel_Spots[i].first;
 
-			for (auto k = 0; k < m_Grinding_Spots[i].second; k++)
+			for (auto k = 0; k < m_Grinding_Travel_Spots[i].second; k++)
 			{
 				if (checkStatus(status_MajorError) || checkStatus(status_MediumError))
 					return m_resValue;
@@ -3694,15 +3694,23 @@ Status_Code CAEBot::stateStationGrinding()
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Preparing to stay here grinding [%d]", m_SummaryInfo.loopNumber);
 		dbgMsg(m_Debug_Type_Grinding, debug_Brief);
 
-		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
+		int grindingstation = 0;
+
+		for (auto i = 0; i < m_Grinding_Station_Spots.size(); i++)
+		{
+			if (m_Grinding_Station_Spots[i].second > grindingstation)
+			{
+				m_SummaryInfo.currentLocation = m_Grinding_Station_Spots[i].first;
+				grindingstation = m_Grinding_Station_Spots[i].second;
+			}
+		}
 
 		clearStatus();
+		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 		m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
 		m_SummaryInfo.runFishCaught = 0;
 		m_SummaryInfo.runMobFought = 0;
 		m_SummaryInfo.runHorrorFought = 0;
-
-		m_SummaryInfo.currentLocation = "Local";
 
 		localstatus = goToTargetLocation(m_SummaryInfo.currentLocation);
 		updateStatus(localstatus);
@@ -3723,38 +3731,38 @@ Status_Code CAEBot::stateLOMSlimeGrinding()
 		loadPathConfig();
 		loadSettingConfig();
 
-		m_Grinding_Spots.clear(); // re config the grinding spots
+		m_Grinding_Travel_Spots.clear(); // re config the grinding spots
 
 		if (!m_Grinding_LOMHeal.empty())
-			m_Grinding_Spots.push_back(make_pair(m_Grinding_LOMHeal, 1));
+			m_Grinding_Travel_Spots.push_back(make_pair(m_Grinding_LOMHeal, 1));
 
 		if (!m_Grinding_LOMSlimeA.empty())
-			m_Grinding_Spots.push_back(make_pair(m_Grinding_LOMSlimeA, 1));
+			m_Grinding_Travel_Spots.push_back(make_pair(m_Grinding_LOMSlimeA, 1));
 
 		if (!m_Grinding_LOMHeal.empty())
-			m_Grinding_Spots.push_back(make_pair(m_Grinding_LOMHeal, 1));
+			m_Grinding_Travel_Spots.push_back(make_pair(m_Grinding_LOMHeal, 1));
 
 		if (!m_Grinding_LOMSlimeB.empty())
-			m_Grinding_Spots.push_back(make_pair(m_Grinding_LOMSlimeB, 1));
+			m_Grinding_Travel_Spots.push_back(make_pair(m_Grinding_LOMSlimeB, 1));
 
 		if (!m_Grinding_LOMSlimeRun.empty())
-			m_Grinding_Spots.push_back(make_pair(m_Grinding_LOMSlimeRun, m_Grinding_LOMTurn));
+			m_Grinding_Travel_Spots.push_back(make_pair(m_Grinding_LOMSlimeRun, m_Grinding_LOMTurn));
 
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Grinding LOM Slime:::");
 		dbgMsg(m_Debug_Type_LOM, debug_Detail);
-		for (auto i = 0; i < m_Grinding_Spots.size(); i++)
+		for (auto i = 0; i < m_Grinding_Travel_Spots.size(); i++)
 		{
-			snprintf(m_debugMsg, MAX_STRING_LENGTH, "---> %s %d", (m_Grinding_Spots[i].first).c_str(), m_Grinding_Spots[i].second);
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "---> %s %d", (m_Grinding_Travel_Spots[i].first).c_str(), m_Grinding_Travel_Spots[i].second);
 			dbgMsg(m_Debug_Type_LOM, debug_Detail);
 		}
 
 		m_SummaryInfo.loopNumber = m_SummaryInfo.loopNumber + 1;
 
-		for (auto i = 0; i < m_Grinding_Spots.size(); i++)
+		for (auto i = 0; i < m_Grinding_Travel_Spots.size(); i++)
 		{
-			m_SummaryInfo.currentLocation = m_Grinding_Spots[i].first;
+			m_SummaryInfo.currentLocation = m_Grinding_Travel_Spots[i].first;
 
-			for (auto k = 0; k < m_Grinding_Spots[i].second; k++)
+			for (auto k = 0; k < m_Grinding_Travel_Spots[i].second; k++)
 			{
 				clearStatus();
 				m_SummaryInfo.locationNumber = m_SummaryInfo.locationNumber + 1;
@@ -4494,9 +4502,13 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Skill_MobSet = parseSkillsSet(file);
 		}
-		else if (key.compare("GrindingSpots") == 0)
+		else if (key.compare("GrindingTravelSpots") == 0)
 		{
-			m_Grinding_Spots = parseGrindingSpotsList(file);
+			m_Grinding_Travel_Spots = parseGrindingSpotsList(file);
+		}
+		else if (key.compare("GrindingStationSpots") == 0)
+		{
+			m_Grinding_Station_Spots = parseGrindingSpotsList(file);
 		}
 
 		/***************************/
@@ -4717,12 +4729,21 @@ void CAEBot::loadSettingConfig()
 		dbgMsg(m_Debug_Type_Setting, debug_Brief);
 	}
 
-	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Grinding:::");
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Grinding Travel:::");
 	dbgMsg(m_Debug_Type_Setting, debug_Brief);
 
-	for (auto j = 0; j < m_Grinding_Spots.size(); j++)
+	for (auto j = 0; j < m_Grinding_Travel_Spots.size(); j++)
 	{
-		snprintf(m_debugMsg, MAX_STRING_LENGTH, "---> %s %d", (m_Grinding_Spots[j].first).c_str(), m_Grinding_Spots[j].second);
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "---> %s %d", (m_Grinding_Travel_Spots[j].first).c_str(), m_Grinding_Travel_Spots[j].second);
+		dbgMsg(m_Debug_Type_Setting, debug_Brief);
+	}
+
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Grinding Station:::");
+	dbgMsg(m_Debug_Type_Setting, debug_Brief);
+
+	for (auto j = 0; j < m_Grinding_Station_Spots.size(); j++)
+	{
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "---> %s %d", (m_Grinding_Station_Spots[j].first).c_str(), m_Grinding_Station_Spots[j].second);
 		dbgMsg(m_Debug_Type_Setting, debug_Brief);
 	}
 
@@ -4853,7 +4874,6 @@ void CAEBot::loadPathConfig()
 	ifstream file("config_path.ini");
 
 	m_LocationList.clear();
-	m_Grinding_StationSpot.pathStepsList.clear();
 	string str;
 
 	while (std::getline(file, str))
@@ -4869,15 +4889,8 @@ void CAEBot::loadPathConfig()
 			locationInfo locInfo;
 			locInfo.locationName = localKeyValue.value;
 
-			if (localKeyValue.value.compare("Default") == 0)
-			{
-				parsePathList(file, m_Grinding_StationSpot);
-			}
-			else
-			{
-				m_LocationList.push_back(locInfo);
-				parsePathList(file, m_LocationList.back());
-			}
+			m_LocationList.push_back(locInfo);
+			parsePathList(file, m_LocationList.back());
 		}
 	}
 
