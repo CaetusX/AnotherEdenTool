@@ -191,6 +191,11 @@ CAEBot::CAEBot(HWND pParent)
 	m_Action_Interval = 3000;
 	m_Fast_Action_Interval = 200;
 	m_Slow_Action_Interval = 5000;
+	m_Extreme_Fast_Action_Interval = 100;
+
+	m_Grinding_Step = 3000;
+	m_Grinding_Step_Fast = 500;
+
 	m_Walk_Distance_Ratio = 1.0;
 	m_DCS_Waiting = 120;
 	m_DCS_Ad_Loading = 60;
@@ -872,20 +877,39 @@ bool CAEBot::is_MainReady()
 {
 	bool mainMain = compareImage("Main Menu");
 	bool mainQuests = compareImage("Main Quests");
-	bool mainMap = compareImage("Main Map");
+	//bool mainMap = compareImage("Main Map");
 
-	if (mainMain && mainQuests && mainMap)
+	if (mainMain && mainQuests)
 	{
-		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel ready %x %x %x", mainMain, mainQuests, mainMap);
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel ready %x %x", mainMain, mainQuests);
 		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 	else
 	{
-		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel not ready %x %x %x", mainMain, mainQuests, mainMap);
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Main panel not ready %x %x", mainMain, mainQuests);
 		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
 	}
 
-	return (mainMain && mainQuests && mainMap);
+	return (mainMain && mainQuests);
+}
+
+bool CAEBot::is_MenuReady()
+{
+	bool menuParty = compareImage("Menu Party");
+	bool menuScenery = compareImage("Menu Scenery");
+
+	if (menuParty && menuScenery)
+	{
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Menu ready %x %x", menuParty, menuScenery);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
+	}
+	else
+	{
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Menu not ready %x %x", menuParty, menuScenery);
+		dbgMsg(m_Debug_Type_Fighting, debug_Granular);
+	}
+
+	return (menuParty && menuScenery);
 }
 
 bool CAEBot::is_InBattle()
@@ -1000,32 +1024,35 @@ Status_Code CAEBot::smartMiniMap(pair<int, int>& coord)
 	return status_NoError;
 }
 
-Status_Code CAEBot::smartLoadMap(pair<int, int>& coord)
+Status_Code CAEBot::smartLoadMap(pair<int, int>& coord, bool directMap)
 {
 	time_t currenttime, startingtime;
 	startingtime = time(NULL);
 
 	leftClick(coord, m_Action_Interval);
 
-	while (!compareImage("Confirm"))
+	if (!directMap)
 	{
-		if (checkStatus(status_MajorError))
-			return m_resValue;
+		while (!compareImage("Confirm"))
+		{
+			if (checkStatus(status_MajorError))
+				return m_resValue;
 
-		currenttime = time(NULL);
-		auto timegap = difftime(currenttime, startingtime);
-		if (timegap > m_Time_Out) // return if timeout
-		{
-			snprintf(m_debugMsg, MAX_STRING_LENGTH, "smartLoadMap timeout %d", (int)timegap);
-			dbgMsg(m_Debug_Type_Platform, debug_Alert);
-			return status_Timeout;
+			currenttime = time(NULL);
+			auto timegap = difftime(currenttime, startingtime);
+			if (timegap > m_Time_Out) // return if timeout
+			{
+				snprintf(m_debugMsg, MAX_STRING_LENGTH, "smartLoadMap timeout %d", (int)timegap);
+				dbgMsg(m_Debug_Type_Platform, debug_Alert);
+				return status_Timeout;
+			}
+			else
+			{
+				Sleep(500);
+			}
 		}
-		else
-		{
-			Sleep(500);
-		}
+		leftClick(m_Button_Yes, m_Action_Interval);
 	}
-	leftClick(m_Button_Yes, m_Action_Interval);
 
 	return sleepLoadTime();
 }
@@ -1147,8 +1174,8 @@ Status_Code CAEBot::walkUntilBattle(Direction_Info botdirection)
 			walk(RIGHT, m_Grinding_Step);
 		case NOWHERE:
 		default:
-			walk(LEFT, 300, 100);
-			walk(RIGHT, 300, 100);
+			walk(LEFT, m_Grinding_Step_Fast, m_Extreme_Fast_Action_Interval);
+			walk(RIGHT, m_Grinding_Step_Fast, m_Extreme_Fast_Action_Interval);
 			break;
 		}
 	}
@@ -1230,7 +1257,7 @@ Status_Code CAEBot::engageMobFightNow()
 			auto timegap = difftime(currenttime, lastfighttime);
 			if (timegap > m_Time_Out) // return if timeout
 			{
-				snprintf(m_debugMsg, MAX_STRING_LENGTH, "Fight Horror time out");
+				snprintf(m_debugMsg, MAX_STRING_LENGTH, "Fight Mob time out");
 				dbgMsg(m_Debug_Type_Fighting, debug_Alert);
 
 				if (m_IsPrint && m_Debug_Type_Fighting) captureScreenNow("FightMobTimeout");
@@ -1268,12 +1295,26 @@ Status_Code CAEBot::engageMobFightNow()
 	return status_NoError;
 }
 
-Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
+Status_Code CAEBot::engageHorrorFightNow(string skillsetRef)
 {
 	cv::Mat partialPic;
 	string textToCheck;
-
 	time_t currenttime, lastfighttime;
+	vector<vector<int>> currentSkillSet;
+
+	for (auto j = 0; j < m_Skill_Sets.size(); j++)
+	{
+		if (skillsetRef.compare("") == 0 && m_Skill_Sets[j].first.compare("HorrorSet") == 0)
+		{
+			currentSkillSet = m_Skill_Sets[j].second;
+			break;
+		}
+		else if (m_Skill_Sets[j].first.compare(skillsetRef) == 0)
+		{
+			currentSkillSet = m_Skill_Sets[j].second;
+			break;
+		}
+	}
 
 	Sleep(m_Action_Interval);
 
@@ -1286,7 +1327,7 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Fighting Horror starts");
 	dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
-	int num_loop = (int)m_Skill_HorrorSet.size();
+	int num_loop = (int)currentSkillSet.size();
 
 	Mat imagePicCrop;
 
@@ -1356,12 +1397,12 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 		{
 			iRun = iRun % num_loop;
 
-			snprintf(m_debugMsg, MAX_STRING_LENGTH, "Attack with %d %d %d %d", m_Skill_HorrorSet[iRun][0], m_Skill_HorrorSet[iRun][1], m_Skill_HorrorSet[iRun][2], m_Skill_HorrorSet[iRun][3]);
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "Attack with %d %d %d %d", currentSkillSet[iRun][0], currentSkillSet[iRun][1], currentSkillSet[iRun][2], currentSkillSet[iRun][3]);
 			dbgMsg(m_Debug_Type_Fighting, debug_Detail);
 
 			for (auto j = 0; j < m_CharacterFrontline; j++)
 			{
-				int iSkill = m_Skill_HorrorSet[iRun][j];
+				int iSkill = currentSkillSet[iRun][j];
 				if (iSkill > m_Skill_AF)
 					iSkill = 0;
 
@@ -1448,17 +1489,6 @@ Status_Code CAEBot::engageHorrorFightNow(bool restoreHPMP)
 	for (auto i = 0; i < 3; i++)
 	{
 		leftClick(m_Button_PassThrough, m_Fast_Action_Interval);
-	}
-
-	if (restoreHPMP)
-	{
-		// restore HP & MP
-		leftClick(m_Button_Menu);
-		leftClick(m_Button_Food);
-		leftClick(m_Button_Yes, m_Action_Interval);
-		leftClick(m_Button_Yes);
-		leftClick(m_Button_Yes);
-		leftClick(m_Button_Yes);
 	}
 
 	return status_NoError;
@@ -1642,6 +1672,15 @@ Status_Code CAEBot::fish(vector<pair<int, int>>& sections)
 									if (m_Fishing_HorrorCount)
 									{
 										m_resValue = engageHorrorFightNow();
+
+										// restore HP & MP
+										leftClick(m_Button_Menu);
+										leftClick(m_Button_Food);
+										leftClick(m_Button_Yes, m_Action_Interval);
+										leftClick(m_Button_Yes);
+										leftClick(m_Button_Yes);
+										leftClick(m_Button_Yes);
+
 										horrorIndex++;
 										
 										if (m_resValue != status_NoError) // failed
@@ -1960,7 +1999,28 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 					dbgMsg(m_Debug_Type_Path, debug_Detail);
 				}
 			}
-			else 
+			else if (curValue1.compare("DirectMap") == 0)
+			{
+				bool isfound = false;
+
+				for (auto i = 0; i < m_Button_MapButtons.size(); i++)
+				{
+					if (curValue2.compare(m_Button_MapButtons[i].buttonName) == 0)
+					{
+						isfound = true;
+						localstatus = smartLoadMap(m_Button_MapButtons[i].xyPosition, true);
+						updateStatus(localstatus);
+						break;
+					}
+				}
+
+				if (!isfound)
+				{
+					snprintf(m_debugMsg, MAX_STRING_LENGTH, "DriectMap %s not found!", curValue2.c_str());
+					dbgMsg(m_Debug_Type_Path, debug_Detail);
+				}
+			}
+			else
 			{
 				bool isfound = false;
 
@@ -2014,17 +2074,38 @@ Status_Code CAEBot::goToTargetLocation(string targetlocation)
 		else if (curType.compare("Task") == 0) {
 			if (curValue1.compare("HarpoonFishing") == 0)
 			{
-				localstatus = harpoonFunction();
-				updateStatus(localstatus);
+				if (curValue2.empty())
+				{
+					localstatus = harpoonFunction();
+					updateStatus(localstatus);
+				}
+				else
+				{
+					localstatus = harpoonFunction(curValue2);
+					updateStatus(localstatus);
+				}
 			}
 			else if (curValue1.compare("HorrorFishing") == 0)
 			{
-				localstatus = harpoonHorror();
-				updateStatus(localstatus);
+				if (curValue2.empty())
+				{
+					localstatus = harpoonHorror();
+					updateStatus(localstatus);
+				}
+				else
+				{
+					localstatus = harpoonHorror(curValue2);
+					updateStatus(localstatus);
+				}
 			}
 			else if (curValue1.compare("TrapFishing") == 0)
 			{
 				localstatus = harpoonTrapFunction(curValue2);
+				updateStatus(localstatus);
+			}
+			else if (curValue1.compare("BossFishing") == 0)
+			{
+				localstatus = harpoonBoss(curValue2);
 				updateStatus(localstatus);
 			}
 			else if (curValue1.compare("PlatiumSlime") == 0)
@@ -2194,27 +2275,23 @@ void CAEBot::goToFishVendor()
 		leftClick(i, 310, 100);
 
 	buyBaitsFromVendor();
+	
+	sleepLoadTime();
 }
 
-void CAEBot::goToHarpoonVendor(bool fromotherplace)
+void CAEBot::goToHarpoonVendor()
 {
-	if (fromotherplace)
-	{
-		goToSpacetimeRift();
+	goToSpacetimeRift();
 
-		m_SummaryInfo.currentLocation = "Harpoon Vendor From Other Place";
-		goToTargetLocation(m_SummaryInfo.currentLocation);
-	}
-	else
-	{
-		m_SummaryInfo.currentLocation = "Harpoon Vendor";
-		goToTargetLocation(m_SummaryInfo.currentLocation);
-	}
-
+	m_SummaryInfo.currentLocation = "Harpoon Vendor From Other Place";
+	goToTargetLocation(m_SummaryInfo.currentLocation);
+	
 	for (auto i = 480; i < 1540; i = i + 30) //click through text
 		leftClick(i, 290, 100);
 
 	buyBaitsFromVendor();
+
+	sleepLoadTime();
 }
 
 void CAEBot::buyBaitsFromVendor()
@@ -2629,7 +2706,7 @@ void CAEBot::fishIconClickFunction()
 	}
 }
 
-Status_Code CAEBot::harpoonFunction()
+Status_Code CAEBot::harpoonFunction(string harpoonRef)
 {
 	string txt;
 	auto counter = 0;
@@ -2645,7 +2722,7 @@ Status_Code CAEBot::harpoonFunction()
 	findclickres = findClick("HarpoonFish", false, (int)M_WIDTH, 200, 0, 240);
 	harpoonfish = findclickres.second;
 
-	if (m_Harpoon_MassShooting)
+	if ( (! harpoonRef.empty()) && (harpoonRef.compare("MassShooting") == 0) )
 	{
 		harpoonMassShooting();
 	}
@@ -2754,12 +2831,13 @@ Status_Code CAEBot::harpoonFunction()
 	return status_NoError;
 }
 
-Status_Code CAEBot::harpoonHorror()
+Status_Code CAEBot::harpoonHorror(string skillsetRef)
 {
 	pair<int, int> harpoonhorror;
 	pair<bool, pair <int, int>> findclickres;
 	time_t currenttime, startingtime;
 	bool foundHorror = false;
+	int counter = 0;
 
 	if (m_Harpoon_MassShooting)
 	{
@@ -2770,20 +2848,36 @@ Status_Code CAEBot::harpoonHorror()
 	}
 	else
 	{
-		findclickres = findClick("HarpoonHorror", false, 1545, 500, 100, 50);
-		harpoonhorror = findclickres.second;
-
-		if (findclickres.first &&
-			!(harpoonhorror.first >= 1390 * m_widthPct && harpoonhorror.second <= 235 * m_heightPct))
+		while (counter <= 4)
 		{
-			leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
-			foundHorror = true;
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon Horror checking [%s]", m_SummaryInfo.currentLocation.c_str());
+			dbgMsg(m_Debug_Type_Fishing, debug_Brief);
+			findclickres = findClick("HarpoonHorror", false, 1545, 500, 100, 50);
+
+			harpoonhorror = findclickres.second;
+
+			if (findclickres.first &&
+				!(harpoonhorror.first >= 1390 * m_widthPct && harpoonhorror.second <= 235 * m_heightPct))
+			{
+				leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
+				foundHorror = true;
+				break;
+			}
+
+			counter++;
 		}
 	}
 
 	if (foundHorror)
 	{
-		leftClick(harpoonhorror.first, harpoonhorror.second, m_Action_Interval, false);
+		if (is_MainReady())
+			return status_NotFight;
+
+		if (! skillsetRef.empty())
+		{
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon Horror fighting with [%s]", skillsetRef.c_str());
+			dbgMsg(m_Debug_Type_Fishing, debug_Key);
+		}
 
 		startingtime = time(NULL);
 		while (!is_InBattle())
@@ -2805,11 +2899,11 @@ Status_Code CAEBot::harpoonHorror()
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon Horror encountered at [%s]", m_SummaryInfo.currentLocation.c_str());
 		dbgMsg(m_Debug_Type_Fishing, debug_Brief);
 
-		m_resValue = engageHorrorFightNow(false);
+		m_resValue = engageHorrorFightNow(skillsetRef);
 		if (m_resValue == status_NoError)
 		{
 			snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon Horror caught at [%s]", m_SummaryInfo.currentLocation.c_str());
-			dbgMsg(m_Debug_Type_Fishing, debug_Key);
+			dbgMsg(m_Debug_Type_Fishing, debug_Alert);
 		}
 
 		leftClick(m_Button_PassThrough, m_Action_Interval);
@@ -2823,9 +2917,14 @@ Status_Code CAEBot::harpoonHorror()
 
 Status_Code CAEBot::harpoonMassShooting()
 {
-	for (auto x = m_Harpoon_Xmin * m_widthPct; x <= m_Harpoon_Xmax * m_widthPct; x = x + m_Harpoon_Xinc * m_widthPct)
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "MassShooting\nX:%d-%d(+%d)[0-%d]\nY:%d-%d(+%d)[0-%d]", 
+		int(m_Harpoon_Xmin), int(m_Harpoon_Xmax), int(m_Harpoon_Xinc), m_width,
+		int(m_Harpoon_Ymin), int(m_Harpoon_Ymax), int(m_Harpoon_Yinc), m_height);
+	dbgMsg(m_Debug_Type_Fishing, debug_Key);
+
+	for (auto x = m_Harpoon_Xmin; x <= m_Harpoon_Xmax; x = x + m_Harpoon_Xinc)
 	{
-		for (auto y = m_Harpoon_Ymin * m_heightPct; y <= m_Harpoon_Ymax * m_heightPct; y = y + m_Harpoon_Yinc * m_heightPct)
+		for (auto y = m_Harpoon_Ymin; y <= m_Harpoon_Ymax; y = y + m_Harpoon_Yinc)
 		{
 			if (checkStatus(status_MajorError))
 				return m_resValue;
@@ -2848,9 +2947,6 @@ Status_Code CAEBot::harpoonTrapFunction(string trapRef)
 	
 	pair<bool, pair <int, int>> findclickres;
 	bool findtraplarge;
-
-	if (m_Harpoon_MassShooting)
-		return status_NoHarpoonTrap;
 
 	findclickres = findClick("HarpoonTrap", false, (int)M_WIDTH, (int) 440, 0, (int) 160);
 	findclicktrap = findclickres.second;
@@ -3008,6 +3104,157 @@ Status_Code CAEBot::harpoonSetTrap(string trapRef)
 	return status_NoError;
 }
 
+Status_Code CAEBot::harpoonBoss(string bossRef)
+{
+	Direction_Info changeDirectionBefore, changeDirectionAfter;
+
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Harpoon Boss [%s]", bossRef.c_str());
+	dbgMsg(m_Debug_Type_Platform, debug_Alert);
+
+	size_t loc = (int)bossRef.find(",");
+	string changestring = bossRef.substr(0, loc);
+	string skillsetname = bossRef.substr(loc + 1);
+
+	size_t loc2 = changestring.find("-");
+	string directionString = changestring.substr(0, loc2);
+	int changeNumber = stoi(changestring.substr(loc2 + 1));
+
+	if (directionString.compare("LEFT") == 0)
+	{
+		changeDirectionBefore = RIGHT;
+		changeDirectionAfter = LEFT;
+	}
+	else
+	{
+		changeDirectionBefore = LEFT;
+		changeDirectionAfter = RIGHT;
+	}
+
+	changeTeam(changeDirectionBefore, changeNumber);
+
+	harpoonHorror(skillsetname);
+
+	changeTeam(changeDirectionAfter, changeNumber);
+
+	return status_NoError;
+}
+
+Status_Code CAEBot::changeTeam(Direction_Info changeDirection, int changeNumber)
+{
+	time_t currenttime, startingtime;
+	pair<bool, pair <int, int>> findclickres;
+
+	snprintf(m_debugMsg, MAX_STRING_LENGTH, "To change team move %d %d", (int)changeDirection, changeNumber);
+	dbgMsg(m_Debug_Type_Platform, debug_Brief);
+
+
+	startingtime = time(NULL);
+	while (!is_MainReady())
+	{
+		if (checkStatus(status_MajorError))
+			return m_resValue;
+
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // return if timeout
+		{
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "change team main timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(500);
+		}
+	}
+
+	leftClick(m_Button_Menu);
+
+	startingtime = time(NULL);
+	while (!is_MenuReady())
+	{
+		if (checkStatus(status_MajorError))
+			return m_resValue;
+
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // return if timeout
+		{
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "change team menu timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(500);
+		}
+	}
+
+	Sleep(m_Load_Time);
+
+	findclickres = findClick("Menu Party", true, 0, 0, 0, 0);
+	leftClick(findclickres.second.first, findclickres.second.second, m_Action_Interval, false);
+
+	for (auto a = 0; a < changeNumber; a++)
+	{
+		startingtime = time(NULL);
+		while (!compareImage("TopTitleBar") && !compareImage("Team Name"))
+		{
+			if (checkStatus(status_MajorError))
+				return m_resValue;
+
+			currenttime = time(NULL);
+			auto timegap = difftime(currenttime, startingtime);
+			if (timegap > m_Time_Out) // return if timeout
+			{
+				snprintf(m_debugMsg, MAX_STRING_LENGTH, "change team teams timeout %d", (int)timegap);
+				dbgMsg(m_Debug_Type_Platform, debug_Alert);
+				return status_Timeout;
+			}
+			else
+			{
+				Sleep(500);
+			}
+		}
+
+		snprintf(m_debugMsg, MAX_STRING_LENGTH, "change team move %d...", (int)changeDirection);
+		dbgMsg(m_Debug_Type_Platform, debug_Brief);
+
+		Sleep(m_Load_Time);
+
+		walk(changeDirection, 2000);
+
+	}
+
+	startingtime = time(NULL);
+	while (!compareImage("TopTitleBar") && !compareImage("Team Name"))
+	{
+		if (checkStatus(status_MajorError))
+			return m_resValue;
+
+		currenttime = time(NULL);
+		auto timegap = difftime(currenttime, startingtime);
+		if (timegap > m_Time_Out) // return if timeout
+		{
+			snprintf(m_debugMsg, MAX_STRING_LENGTH, "change team teams timeout %d", (int)timegap);
+			dbgMsg(m_Debug_Type_Platform, debug_Alert);
+			return status_Timeout;
+		}
+		else
+		{
+			Sleep(500);
+		}
+	}
+
+	Sleep(m_Load_Time);
+
+	leftClick(m_Button_X);
+
+	Sleep(m_Load_Time);
+
+	return status_NoError;
+}
+
 Status_Code CAEBot::lomPlatiumSlime()
 {
 	bool platiumslimeencountered = false;
@@ -3038,7 +3285,7 @@ Status_Code CAEBot::lomPlatiumSlime()
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Platium Slime encountered at [%s]", m_SummaryInfo.currentLocation.c_str());
 	dbgMsg(m_Debug_Type_LOM, debug_Brief);
 
-	m_resValue = engageHorrorFightNow(false);
+	m_resValue = engageHorrorFightNow();
 	if (m_resValue == status_NoError)
 	{
 		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Platium Slime defeated at [%s]", m_SummaryInfo.currentLocation.c_str());
@@ -3125,8 +3372,7 @@ Status_Code CAEBot::stateHarpoonFishing()
 		loadPathConfig();
 		loadSettingConfig();
 
-		if (!m_Harpoon_SkipVendor)
-			goToHarpoonVendor(firstrun);
+		goToHarpoonVendor();
 		
 		firstrun = false;
 
@@ -4138,7 +4384,39 @@ vector<buttonInfo> CAEBot::parseButtons(ifstream& file)
 	return buttonlist;
 }
 
-vector<vector<int>> CAEBot::parseSkillsSet(ifstream& file)
+void CAEBot::parseSkillSets(ifstream& file)
+{
+	string str, key, value;
+	keyvalueInfo localKeyValue;
+
+	while (1)
+	{
+		std::getline(file, str);
+		ltrimString(str);
+		if (str[0] == '-' || str[0] == '\n') //skip comments and blank lines
+			continue;
+		if (str.compare("~END") == 0)
+			break;
+
+		localKeyValue = parseKeyValue(str, string("="));
+		key = localKeyValue.key;
+		value = localKeyValue.value;
+
+		if (key.compare("SkillSet") == 0)
+		{
+			vector<vector<int>> curSkillSet = parseSkills(file);
+			m_Skill_Sets.push_back(make_pair(value, curSkillSet));
+		}
+	}
+
+	for (auto j = 0; j < m_Skill_Sets.size(); j++)
+	{
+		if (m_Skill_Sets[j].first.compare("MobSet") == 0)
+			m_Skill_MobSet = m_Skill_Sets[j].second;
+	}
+};
+
+vector<vector<int>> CAEBot::parseSkills(ifstream& file)
 {
 	vector<vector<int>> skillsSet;
 	string str;
@@ -4396,6 +4674,10 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Slow_Action_Interval = stoi(value);
 		}
+		else if (key.compare("Extreme Fast Interval") == 0)
+		{
+			m_Extreme_Fast_Action_Interval = stoi(value);
+		}
 		else if (key.compare("Image Threshold") == 0)
 		{
 			m_Image_Threshold = stoi(value);
@@ -4490,17 +4772,17 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Grinding_Step = stoi(value);
 		}
+		else if (key.compare("Run Steps Fast") == 0)
+		{
+			m_Grinding_Step_Fast = stoi(value);
+		}
 		else if (key.compare("Run Count") == 0)
 		{
 			m_Grinding_Count = stoi(value);
 		}
-		else if (key.compare("SkillsHorrorSet") == 0)
+		else if (key.compare("SkillSets") == 0)
 		{
-			m_Skill_HorrorSet = parseSkillsSet(file);
-		}
-		else if (key.compare("SkillsMobSet") == 0)
-		{
-			m_Skill_MobSet = parseSkillsSet(file);
+			parseSkillSets(file);
 		}
 		else if (key.compare("GrindingTravelSpots") == 0)
 		{
@@ -4537,7 +4819,7 @@ void CAEBot::loadSettingConfig()
 		}
 		else if (key.compare("Harpoon Y incremental") == 0)
 		{
-			m_Harpoon_Yinc = (int)round(stoi(value) * M_WIDTH / M_WIDTH_1280);
+			m_Harpoon_Yinc = (int)round(stoi(value) * M_HEIGHT / M_HEIGHT_720);
 		}
 		else if (key.compare("Harpoon X min") == 0)
 		{
@@ -4554,10 +4836,6 @@ void CAEBot::loadSettingConfig()
 		else if (key.compare("Harpoon Y max") == 0)
 		{
 			m_Harpoon_Ymax = (int)round(stoi(value) * M_HEIGHT / M_HEIGHT_720);
-		}
-		else if (key.compare("Harpoon Skip Vendor") == 0)
-		{
-			m_Harpoon_SkipVendor = stoi(value);
 		}
 		else if (key.compare("Harpoon Interval") == 0)
 		{
@@ -4709,24 +4987,6 @@ void CAEBot::loadSettingConfig()
 		{
 			m_Button_Baits = parseButtons(file);
 		}
-	}
-
-	snprintf(m_debugMsg, MAX_STRING_LENGTH, "SkillsHorrorSet:::");
-	dbgMsg(m_Debug_Type_Setting, debug_Brief);
-
-	for (auto j = 0; j < m_Skill_HorrorSet.size(); j++)
-	{
-		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Turn [%d]: %d %d %d %d", j, m_Skill_HorrorSet[j][0], m_Skill_HorrorSet[j][1], m_Skill_HorrorSet[j][2], m_Skill_HorrorSet[j][3]);
-		dbgMsg(m_Debug_Type_Setting, debug_Brief);
-	}
-
-	snprintf(m_debugMsg, MAX_STRING_LENGTH, "SkillsMobSet:::");
-	dbgMsg(m_Debug_Type_Setting, debug_Brief);
-
-	for (auto j = 0; j < m_Skill_MobSet.size(); j++)
-	{
-		snprintf(m_debugMsg, MAX_STRING_LENGTH, "Turn [%d]: %d %d %d %d", j, m_Skill_MobSet[j][0], m_Skill_MobSet[j][1], m_Skill_MobSet[j][2], m_Skill_MobSet[j][3]);
-		dbgMsg(m_Debug_Type_Setting, debug_Brief);
 	}
 
 	snprintf(m_debugMsg, MAX_STRING_LENGTH, "Grinding Travel:::");

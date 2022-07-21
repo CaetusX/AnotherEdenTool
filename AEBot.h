@@ -276,7 +276,8 @@ private:
 	pair<int, int> m_Button_PassThrough;
 	pair<int, int> m_Button_AdsClose;
 
-	vector<vector<int>> m_Skill_HorrorSet;
+	vector<pair<string, vector<vector<int>>>> m_Skill_Sets;
+
 	vector<vector<int>> m_Skill_MobSet;
 
 	int m_Skill_Normal;
@@ -290,6 +291,7 @@ private:
 	int m_Action_Interval;
 	int m_Fast_Action_Interval;
 	int m_Slow_Action_Interval;
+	int m_Extreme_Fast_Action_Interval;
 
 	int m_DCS_Waiting;
 	int m_DCS_Timeout;
@@ -309,6 +311,7 @@ private:
 	Direction_Info m_Grinding_Direction;
 
 	int m_Grinding_Step;
+	int m_Grinding_Step_Fast;
 	int m_Grinding_Count;
 	int m_Fishing_HorrorCount;
 	int m_Fishing_PondTeleport;
@@ -328,7 +331,6 @@ private:
 	int m_Harpoon_Xmax;
 	int m_Harpoon_Ymin;
 	int m_Harpoon_Ymax;
-	bool m_Harpoon_SkipVendor;
 	int m_Harpoon_Interval;
 
 	TCHAR m_CurrentPath[MAX_PATH];
@@ -375,19 +377,20 @@ private:
 	void walk(Direction_Info botDirection, int time);
 	void walk(Direction_Info botDirection, int time, int sleepTime);
 	bool is_MainReady();
+	bool is_MenuReady();
 	bool is_InBattle();
 	bool is_EndBattle();
 
 	Status_Code smartWorldMap(pair<int, int>& coord);
 	Status_Code smartMiniMap(pair<int, int>& coord);
-	Status_Code smartLoadMap(pair<int, int>& coord);
+	Status_Code smartLoadMap(pair<int, int>& coord, bool directMap = false);
 	Status_Code smartDownUp(Direction_Info updownDirection, Direction_Info leftrightDirection);
 	Status_Code sleepLoadTime();
 	Status_Code fightUntilEnd();
 	Status_Code walkUntilBattle(Direction_Info botdirection);
 
 	Status_Code engageMobFightNow();
-	Status_Code engageHorrorFightNow(bool restoreHPMP = true);
+	Status_Code engageHorrorFightNow(string skillsetRef = "");
 
 	Status_Code fish(vector<pair<int, int>>& sections);
 	Status_Code changeBait(Bait_Type type);
@@ -395,15 +398,19 @@ private:
 	Status_Code goToFishingLocation(string targetlocation);
 	void goToSpacetimeRift(bool heal = true);
 	void goToFishVendor();
-	void goToHarpoonVendor(bool fromotherplace = false);
+	void goToHarpoonVendor();
 	void buyBaitsFromVendor();
 	Status_Code fishFunction();
 	void fishIconClickFunction();
-	Status_Code harpoonFunction();
-	Status_Code harpoonHorror();
+	Status_Code harpoonFunction(string harpoonRef = "");
+	Status_Code harpoonHorror(string skillsetRef = "");
 	Status_Code harpoonMassShooting();
 	Status_Code harpoonTrapFunction(string trapRef = "");
 	Status_Code harpoonSetTrap(string trapRef = "");
+	Status_Code harpoonBoss(string trapRef = "");
+
+	Status_Code changeTeam(Direction_Info changeDirection, int changeNumber);
+
 	Status_Code lomPlatiumSlime();
 
 	Status_Code stateFishing();
@@ -425,7 +432,8 @@ private:
 	pathInfo parsePathStep(string str);
 	void parseDynamicImage(ifstream& file);
 	vector<buttonInfo> parseButtons(ifstream& file);
-	vector<vector<int>> parseSkillsSet(ifstream& file);
+	void parseSkillSets(ifstream& file);
+	vector<vector<int>> parseSkills(ifstream& file);
 	vector<pair<string, int>> parseGrindingSpotsList(ifstream& file);
 	vector<string> parseGrastaNames(ifstream& file);
 	void parseBaitForArea(ifstream& file, bool constructBait, fishingSpot& area, set<Bait_Type>& baitsNeeded, vector<baitInfo>& baitsToPurchase);
